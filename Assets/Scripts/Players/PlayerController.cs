@@ -7,43 +7,56 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public enum PlayerColor { None, Red = 1, Blue }
+public enum ColorType { None, Red = 1, Blue }
 
 public class PlayerController : NetworkBehaviour
 {
-    private CharacterController characterController;
-    private Rigidbody rigidbody;
-    public GameObject MainCam { get; private set; }
-    public GameObject MainCamHolder { get; private set; }
+    [SerializeField] private float _walkSpeed = 10;
+    [SerializeField] private float _rotateSpeed = 2;
+    [SerializeField] private float _jumpForce = 20;
 
-    [SerializeField] private float walkSpeed;
-    [SerializeField] private float rotateSpeed;
-    [SerializeField] private float jumpForce;
+    private Rigidbody _rigidbody;
+    private MeshRenderer _meshRenderer;
 
-    private float pitchAngle;
-    private float verticalVelocity;
-    private bool isGrounded = true;
+    private float _pitchAngle;
+    private float _verticalVelocity;
+    private bool _isGrounded = true;
 
-    public NetworkVariable<PlayerColor> playerColor = new NetworkVariable<PlayerColor>();
-    public CubeController HoldCube;
+    private GameObject _mainCam;
+    public GameObject MainCam
+    {
+        get => _mainCam;
+    }
+    private NetworkVariable<ColorType> _playerColor = new NetworkVariable<ColorType>();
+    public NetworkVariable<ColorType> PlayerColor
+    {
+        get => _playerColor;
+        set => _playerColor.Value = value.Value;
+    }
+    private CubeController _cubeInHand;
+    public CubeController CubeInHand
+    {
+        get => _cubeInHand;
+        set => _cubeInHand = value;
+    }
 
     public override void OnNetworkSpawn()
     {
-        characterController = GetComponent<CharacterController>();
-        rigidbody = GetComponent<Rigidbody>();
+        _rigidbody = GetComponent<Rigidbody>();
+        _meshRenderer = GetComponent<MeshRenderer>();
 
-        playerColor.OnValueChanged += (PlayerColor before, PlayerColor after) =>
+        _playerColor.OnValueChanged += (ColorType before, ColorType after) =>
         {
-            MeshRenderer meshRenderer = GetComponent<MeshRenderer>();
+            _meshRenderer = GetComponent<MeshRenderer>();
 
-            if (after == PlayerColor.Red)
+            if (after == ColorType.Red)
             {
-                meshRenderer.material.color = new Color(1, 0, 0);
+                _meshRenderer.material.color = new Color(1, 0, 0);
                 gameObject.layer = LayerMask.NameToLayer("Red");
             }
-            else if (after == PlayerColor.Blue)
+            else if (after == ColorType.Blue)
             {
-                meshRenderer.material.color = new Color(0, 0, 1);
+                _meshRenderer.material.color = new Color(0, 0, 1);
                 gameObject.layer = LayerMask.NameToLayer("Blue");
             }
 
@@ -58,33 +71,35 @@ public class PlayerController : NetworkBehaviour
 
         if (IsServer)
         {
-            if (NetworkManager.Singleton.ConnectedClients.Count == 1) playerColor.Value = PlayerColor.Red;
-            else playerColor.Value = PlayerColor.Blue;
+            if (NetworkManager.Singleton.ConnectedClients.Count == 1) _playerColor.Value = ColorType.Red;
+            else _playerColor.Value = ColorType.Blue;
         }
-
-        MainCamHolder = new GameObject("Main Camera Holder");
-        MainCamHolder.transform.parent = transform;
 
         if (IsOwner)
         {
-            MainCam = new GameObject("Main Camera");
-            MainCam.transform.parent = MainCamHolder.transform;
-            MainCam.AddComponent<Camera>();
-            MainCam.AddComponent<AudioListener>();
-            MainCam.tag = "MainCamera";
+            _mainCam = new GameObject("Main Camera");
+            _mainCam.transform.parent = transform;
+            _mainCam.AddComponent<Camera>();
+            _mainCam.AddComponent<AudioListener>();
+            _mainCam.tag = "MainCamera";
 
             Cursor.lockState = CursorLockMode.Locked;
 
             foreach(var player in FindObjectsByType<PlayerController>(FindObjectsSortMode.None))
             {
-                MeshRenderer meshRenderer = player.GetComponent<MeshRenderer>();
+                MeshRenderer temp_meshRenderer = player.GetComponent<MeshRenderer>();
 
-                if (player.playerColor.Value == PlayerColor.Red) meshRenderer.material.color = new Color(1, 0, 0);
-                else if (player.playerColor.Value == PlayerColor.Blue) meshRenderer.material.color = new Color(0, 0, 1);
+                if (player.PlayerColor.Value == ColorType.Red) temp_meshRenderer.material.color = new Color(1, 0, 0);
+                else if (player.PlayerColor.Value == ColorType.Blue) temp_meshRenderer.material.color = new Color(0, 0, 1);
             }
 
-            NetworkUI.Instance.UpdateYourColorText(playerColor.Value);
+            NetworkUI.Instance.UpdateYourColorText(_playerColor.Value);
         }
+    }
+
+    private void Start()
+    {
+        if (!IsOwner) return;
     }
 
     void Update()
@@ -97,56 +112,30 @@ public class PlayerController : NetworkBehaviour
         float mouseX = Input.GetAxis("Mouse X");
         float mouseY = -Input.GetAxis("Mouse Y");
 
-        pitchAngle = Mathf.Clamp(pitchAngle + mouseY * rotateSpeed, -90, 90);
+        _pitchAngle = Mathf.Clamp(_pitchAngle + mouseY * _rotateSpeed, -90, 90);
 
-        /*
-        // HORIZONTAL MOVE
-        Vector3 moveDir = (v * transform.forward + h * transform.right).normalized * walkSpeed;
-        characterController.Move(moveDir * Time.deltaTime);
+        Vector3 moveDir = (v * transform.forward + h * transform.right).normalized * _walkSpeed;
+        _rigidbody.velocity = new Vector3(moveDir.x, _rigidbody.velocity.y, moveDir.z);
 
-        // JUMP
-        if (isGrounded)
+        if (Input.GetKeyDown(KeyCode.Space) && _isGrounded)
         {
-            if (Input.GetKeyDown(KeyCode.Space))
-            {
-                verticalVelocity = jumpForce;
-                isGrounded = false;
-            }
-            else
-            {
-                verticalVelocity = 0;
-            }
-        }
-        else
-        {
-            verticalVelocity += Physics.gravity.y * 10f * Time.deltaTime;
-        }
-
-        characterController.Move(Vector3.up * verticalVelocity * Time.deltaTime);
-        */
-
-        Vector3 moveDir = (v * transform.forward + h * transform.right).normalized * walkSpeed;
-        rigidbody.velocity = new Vector3(moveDir.x, rigidbody.velocity.y, moveDir.z);
-
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
-        {
-            rigidbody.velocity = new Vector3(moveDir.x, jumpForce, moveDir.z);
-            isGrounded = false;
+            _rigidbody.velocity = new Vector3(moveDir.x, _jumpForce, moveDir.z);
+            _isGrounded = false;
         }
 
         // ROTATE
         if (!Input.GetKey(KeyCode.Tab))
         {
-            transform.Rotate(new Vector3(0, mouseX * rotateSpeed, 0));
-            Vector3 cameraRot = MainCamHolder.transform.rotation.eulerAngles;
-            MainCamHolder.transform.rotation = Quaternion.Euler(pitchAngle, cameraRot.y, cameraRot.z);
+            transform.Rotate(new Vector3(0, mouseX * _rotateSpeed, 0));
+            Vector3 cameraRot = MainCam.transform.rotation.eulerAngles;
+            MainCam.transform.rotation = Quaternion.Euler(_pitchAngle, cameraRot.y, cameraRot.z);
         }
 
         if (Input.GetKeyDown(KeyCode.E))
         {
-            if (HoldCube != null)
+            if (_cubeInHand != null)
             {
-                MultiplayerManager.Instance.RemoveCubeHolderServerRpc(GetComponent<NetworkObject>(), HoldCube.gameObject.GetComponent<NetworkObject>());
+                MultiplayerManager.Instance.RemoveCubeHolderServerRpc(GetComponent<NetworkObject>(), _cubeInHand.gameObject.GetComponent<NetworkObject>());
                 return;
             }
 
@@ -158,12 +147,12 @@ public class PlayerController : NetworkBehaviour
                 {
                     if (hit.collider.gameObject.TryGetComponent<CubeController>(out CubeController cubeController))
                     {
-                        if (cubeController.PlayerController == null && HoldCube == null)
+                        if (cubeController.HoldingPlayer == null && _cubeInHand == null)
                         {
-                            bool sameColor = (playerColor.Value == PlayerColor.Red && cubeController.CubeColor == CubeColors.Red) ||
-                                        (playerColor.Value == PlayerColor.Blue && cubeController.CubeColor == CubeColors.Blue);
-
-                            if (sameColor) MultiplayerManager.Instance.UpdateCubeHolderServerRpc(GetComponent<NetworkObject>(), hit.collider.gameObject.GetComponent<NetworkObject>());
+                            if (_playerColor.Value == cubeController.CubeColor.Value)
+                            {
+                                MultiplayerManager.Instance.UpdateCubeHolderServerRpc(GetComponent<NetworkObject>(), hit.collider.gameObject.GetComponent<NetworkObject>());
+                            }
                         }
                     }
                 }
@@ -172,11 +161,11 @@ public class PlayerController : NetworkBehaviour
 
         if (MultiplayerManager.Instance != null)
         {
-            if (MultiplayerManager.Instance.currentRule == Rule.Red && playerColor.Value != PlayerColor.Red)
+            if (MultiplayerManager.Instance.currentRule == Rule.Red && PlayerColor.Value != ColorType.Red)
             {
                 NetworkUI.Instance.ShowWarning();
             }
-            else if (MultiplayerManager.Instance.currentRule == Rule.Blue && playerColor.Value != PlayerColor.Blue)
+            else if (MultiplayerManager.Instance.currentRule == Rule.Blue && PlayerColor.Value != ColorType.Blue)
             {
                 NetworkUI.Instance.ShowWarning();
             }
@@ -198,26 +187,31 @@ public class PlayerController : NetworkBehaviour
 
         if (Input.GetKeyDown(KeyCode.T))
         {
-            DebugManager.Instance.AddDebugText("Your Color Is " + playerColor.Value);
+            DebugManager.Instance.AddDebugText("Your Color Is " + _playerColor.Value);
         }
         if (Input.GetKeyDown(KeyCode.Y))
         {
             ChangePlayerColorServerRpc();
+        }
+
+        if (_cubeInHand != null)
+        {
+            _cubeInHand.UpdateTargetPositionServerRpc(MainCam.transform.position + MainCam.transform.forward * 3);
         }
     }
 
     [ServerRpc(RequireOwnership = false)]
     public void ChangePlayerColorServerRpc()
     {
-        if (playerColor.Value == PlayerColor.Red) playerColor.Value = PlayerColor.Blue;
-        else playerColor.Value = PlayerColor.Red;
+        if (_playerColor.Value == ColorType.Red) _playerColor.Value = ColorType.Blue;
+        else _playerColor.Value = ColorType.Red;
     }
 
     private void OnCollisionEnter(Collision collision)
     {
         if (collision.gameObject.CompareTag("Ground"))
         {
-            isGrounded = true;
+            _isGrounded = true;
         }
     }
 }

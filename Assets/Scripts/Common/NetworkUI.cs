@@ -24,9 +24,9 @@ public class NetworkUI : MonoBehaviour
         clientButton.onClick.AddListener(() => NetworkManager.Singleton.StartClient());
     }
 
-    public void UpdateYourColorText(PlayerColor newColor)
+    public void UpdateYourColorText(ColorType newColor)
     {
-        if (newColor == PlayerColor.Red) yourColorText.text = "Your Color: <color=\"red\">Red</color>";
+        if (newColor == ColorType.Red) yourColorText.text = "Your Color: <color=\"red\">Red</color>";
         else yourColorText.text = "Your Color: <color=\"blue\">Blue</color>";
     }
 

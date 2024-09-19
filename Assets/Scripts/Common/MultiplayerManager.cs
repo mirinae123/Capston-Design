@@ -9,6 +9,7 @@ public class MultiplayerManager : NetworkBehaviour
 {
     public static MultiplayerManager Instance;
 
+    public PlayerController LocalPlayer;
     public Rule currentRule = Rule.Yellow;
     float timeTillUpdate = 5f;
 
@@ -54,6 +55,11 @@ public class MultiplayerManager : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void UpdateCubeHolderServerRpc(NetworkObjectReference player, NetworkObjectReference cube)
     {
+        if (player.TryGet(out NetworkObject playerObj) && cube.TryGet(out NetworkObject cubeObj))
+        {
+            cubeObj.GetComponent<NetworkObject>().ChangeOwnership(playerObj.GetComponent<NetworkObject>().OwnerClientId);
+        }
+
         UpdateCubeHolderClientRpc(player, cube);
     }
 
@@ -62,14 +68,19 @@ public class MultiplayerManager : NetworkBehaviour
     {
         if (player.TryGet(out NetworkObject playerObj) && cube.TryGet(out NetworkObject cubeObj))
         {
-            playerObj.GetComponent<PlayerController>().HoldCube = cubeObj.GetComponent<CubeController>();
-            cubeObj.GetComponent<CubeController>().PlayerController = playerObj.GetComponent <PlayerController>();
+            playerObj.GetComponent<PlayerController>().CubeInHand = cubeObj.GetComponent<CubeController>();
+            cubeObj.GetComponent<CubeController>().HoldingPlayer = playerObj.GetComponent<PlayerController>();
         }
     }
 
     [ServerRpc(RequireOwnership = false)]
     public void RemoveCubeHolderServerRpc(NetworkObjectReference player, NetworkObjectReference cube)
     {
+        if (player.TryGet(out NetworkObject playerObj) && cube.TryGet(out NetworkObject cubeObj))
+        {
+            cubeObj.GetComponent<NetworkObject>().RemoveOwnership();
+        }
+
         RemoveCubeHolderClientRpc(player, cube);
     }
 
@@ -78,8 +89,8 @@ public class MultiplayerManager : NetworkBehaviour
     {
         if (player.TryGet(out NetworkObject playerObj) && cube.TryGet(out NetworkObject cubeObj))
         {
-            playerObj.GetComponent<PlayerController>().HoldCube = null;
-            cubeObj.GetComponent<CubeController>().PlayerController = null;
+            playerObj.GetComponent<PlayerController>().CubeInHand = null;
+            cubeObj.GetComponent<CubeController>().HoldingPlayer = null;
         }
     }
 }

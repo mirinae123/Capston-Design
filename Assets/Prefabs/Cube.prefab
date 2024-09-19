@@ -187,7 +187,7 @@ MonoBehaviour:
   UseQuaternionCompression: 0
   UseHalfFloatPrecision: 0
   InLocalSpace: 0
-  Interpolate: 1
+  Interpolate: 0
   SlerpPosition: 0
 --- !u!114 &1630734185264148257
 MonoBehaviour:
@@ -213,5 +213,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 902393cb073027a45b88f20dc861a005, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  CubeColor: 0
+  _initColor: 0
+  CubeColor:
+    m_InternalValue: 0
   PlayerController: {fileID: 0}

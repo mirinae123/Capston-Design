@@ -5,59 +5,45 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// 멀티플레이어 테스트 UI를 지원하는 싱글톤 클래스
+/// </summary>
 public class NetworkUI : MonoBehaviour
 {
     public static NetworkUI Instance;
 
-    [SerializeField] Button hostButton;
-    [SerializeField] Button clientButton;
-    [SerializeField] TMP_Text yourColorText;
-    [SerializeField] TMP_Text WarningText;
+    [SerializeField] Button _hostButton;
+    [SerializeField] Button _clientButton;
+    [SerializeField] TMP_Text _yourColorText;
 
-    [SerializeField] Image[] lightCircles;
-
-    void Start()
+    public void Awake()
     {
         Instance = this;
+    }
 
-        hostButton.onClick.AddListener(() => NetworkManager.Singleton.StartHost());
-        clientButton.onClick.AddListener(() => NetworkManager.Singleton.StartClient());
+    public void Start()
+    {
+        _hostButton.onClick.AddListener(() =>
+        {
+            NetworkManager.Singleton.StartHost();
+
+            _hostButton.gameObject.SetActive(false);
+            _clientButton.gameObject.SetActive(false);
+        }
+        );
+        _clientButton.onClick.AddListener(() =>
+        {
+            NetworkManager.Singleton.StartClient();
+
+            _hostButton.gameObject.SetActive(false);
+            _clientButton.gameObject.SetActive(false);
+        }
+        );
     }
 
     public void UpdateYourColorText(ColorType newColor)
     {
-        if (newColor == ColorType.Red) yourColorText.text = "Your Color: <color=\"red\">Red</color>";
-        else yourColorText.text = "Your Color: <color=\"blue\">Blue</color>";
-    }
-
-    public void UpdateLightCircles()
-    {
-        foreach(var circle in lightCircles)
-        {
-            circle.color = new Color(.3f, .3f, .3f);
-        }
-
-        if (MultiplayerManager.Instance.currentRule == Rule.Blue)
-        {
-            lightCircles[0].color = new Color(0, 0, 1);
-        }
-        else if (MultiplayerManager.Instance.currentRule == Rule.Yellow)
-        {
-            lightCircles[1].color = new Color(1, 1, 0);
-        }
-        else
-        {
-            lightCircles[2].color = new Color(1, 0, 0);
-        }
-    }
-
-    public void ShowWarning()
-    {
-        WarningText.enabled = true;
-    }
-
-    public void HideWarning()
-    {
-        WarningText.enabled = false;
+        if (newColor == ColorType.Red) _yourColorText.text = "Your Color: <color=\"red\">Red</color>";
+        else _yourColorText.text = "Your Color: <color=\"blue\">Blue</color>";
     }
 }

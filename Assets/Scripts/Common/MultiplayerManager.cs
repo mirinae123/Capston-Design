@@ -1,96 +1,41 @@
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Events;
 
-public enum Rule { None, Blue, Yellow, Red }
+/// <summary>
+/// 색깔 enum
+/// </summary>
+public enum ColorType { None, Blue, Red }
 
+/// <summary>
+/// 멀티플레이어 구현을 지원하는 싱글톤 클래스
+/// </summary>
 public class MultiplayerManager : NetworkBehaviour
 {
     public static MultiplayerManager Instance;
 
-    public PlayerController LocalPlayer;
-    public Rule currentRule = Rule.Yellow;
-    float timeTillUpdate = 5f;
+    /// <summary>
+    /// LocalPlayer가 지정되어 더 이상 NULL이 아닌 경우 Invoke한다.
+    /// OnNetworkSpawn(), Start() 등에서 LocalPlayer를 참조하는 경우 NULL 값을 참조하지 않기 위함이다.
+    /// </summary>
+    private static UnityEvent _localPlayerSet = new UnityEvent();
+    public static UnityEvent LocalPlayerSet
+    {
+        get => _localPlayerSet;
+    }
 
-    public override void OnNetworkSpawn()
+    private PlayerController _localPlayer;
+    public PlayerController LocalPlayer
+    {
+        get => _localPlayer;
+        set => _localPlayer = value;
+    }
+
+    public void Awake()
     {
         Instance = this;
-
-        NetworkUI.Instance.UpdateLightCircles();
-    }
-
-    void Update()
-    {
-        if (!IsServer) return;
-
-        timeTillUpdate -= Time.deltaTime;
-
-        if (timeTillUpdate < 0)
-        {
-            if (currentRule == Rule.Yellow)
-            {
-                float rand = Random.value;
-
-                if (rand > 0.5f) UpdateRuleClientRpc(Rule.Red);
-                else UpdateRuleClientRpc(Rule.Blue);
-
-                timeTillUpdate = 4f;
-            }
-            else
-            {
-                UpdateRuleClientRpc(Rule.Yellow);
-                timeTillUpdate = 1.5f;
-            }
-        }
-    }
-
-    [ClientRpc]
-    public void UpdateRuleClientRpc(Rule newRule)
-    {
-        currentRule = newRule;
-        NetworkUI.Instance.UpdateLightCircles();
-    }
-
-    [ServerRpc(RequireOwnership = false)]
-    public void UpdateCubeHolderServerRpc(NetworkObjectReference player, NetworkObjectReference cube)
-    {
-        if (player.TryGet(out NetworkObject playerObj) && cube.TryGet(out NetworkObject cubeObj))
-        {
-            cubeObj.GetComponent<NetworkObject>().ChangeOwnership(playerObj.GetComponent<NetworkObject>().OwnerClientId);
-        }
-
-        UpdateCubeHolderClientRpc(player, cube);
-    }
-
-    [ClientRpc]
-    public void UpdateCubeHolderClientRpc(NetworkObjectReference player, NetworkObjectReference cube)
-    {
-        if (player.TryGet(out NetworkObject playerObj) && cube.TryGet(out NetworkObject cubeObj))
-        {
-            playerObj.GetComponent<PlayerController>().CubeInHand = cubeObj.GetComponent<CubeController>();
-            cubeObj.GetComponent<CubeController>().HoldingPlayer = playerObj.GetComponent<PlayerController>();
-        }
-    }
-
-    [ServerRpc(RequireOwnership = false)]
-    public void RemoveCubeHolderServerRpc(NetworkObjectReference player, NetworkObjectReference cube)
-    {
-        if (player.TryGet(out NetworkObject playerObj) && cube.TryGet(out NetworkObject cubeObj))
-        {
-            cubeObj.GetComponent<NetworkObject>().RemoveOwnership();
-        }
-
-        RemoveCubeHolderClientRpc(player, cube);
-    }
-
-    [ClientRpc]
-    public void RemoveCubeHolderClientRpc(NetworkObjectReference player, NetworkObjectReference cube)
-    {
-        if (player.TryGet(out NetworkObject playerObj) && cube.TryGet(out NetworkObject cubeObj))
-        {
-            playerObj.GetComponent<PlayerController>().CubeInHand = null;
-            cubeObj.GetComponent<CubeController>().HoldingPlayer = null;
-        }
     }
 }

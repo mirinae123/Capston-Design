@@ -16,7 +16,7 @@ public class DebugManager : MonoBehaviour
 
     Queue<GameObject> debugTextQueue = new Queue<GameObject>();
 
-    void Start()
+    public void Awake()
     {
         Instance = this;
 
@@ -26,7 +26,7 @@ public class DebugManager : MonoBehaviour
     public void AddDebugText(string text)
     {
         GameObject newText = Instantiate(debugTextPrefab);
-        newText.transform.parent = debugViewerContent.transform;
+        newText.transform.SetParent(debugViewerContent.transform, false);
 
         TMP_Text newTMP = newText.GetComponent<TMP_Text>();
         newTMP.text = "- " + text;
@@ -47,7 +47,7 @@ public class DebugManager : MonoBehaviour
     {
         debugViewerScrollView.sizeDelta = new Vector2(400, 200);
 
-        debugToggleButton.gameObject.GetComponentInChildren<TMP_Text>().text = "¡å";
+        debugToggleButton.gameObject.GetComponentInChildren<TMP_Text>().text = "â–¼";
         debugToggleButton.onClick.RemoveAllListeners();
         debugToggleButton.onClick.AddListener(() => { HideDebugConsole(); });
     }
@@ -56,7 +56,7 @@ public class DebugManager : MonoBehaviour
     {
         debugViewerScrollView.sizeDelta = new Vector2(400, 0);
 
-        debugToggleButton.gameObject.GetComponentInChildren<TMP_Text>().text = "¡ã";
+        debugToggleButton.gameObject.GetComponentInChildren<TMP_Text>().text = "â–²";
         debugToggleButton.onClick.RemoveAllListeners();
         debugToggleButton.onClick.AddListener(() => { ShowDebugConsole(); });
     }

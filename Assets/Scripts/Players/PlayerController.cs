@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Security.Claims;
 using System.Text;
 using Unity.Burst.CompilerServices;
 using Unity.Netcode;
@@ -8,14 +9,15 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 
 /// <summary>
-/// 플레이어 조작과 정보에 대한 클래스
+/// 플레이어 조작과 정보에 대한 클래스.
 /// </summary>
 public class PlayerController : NetworkBehaviour
 {
-    // 이동 속력, 회전 속력, 점프력
-    [SerializeField] private float _walkSpeed = 10;
+    // 이동 속력, 최대 이동 속력, 회전 속력, 점프력
+    [SerializeField] private float _walkForce = 8000;
+    [SerializeField] private float _maxWalkSpeed = 4;
     [SerializeField] private float _rotateSpeed = 2;
-    [SerializeField] private float _jumpForce = 20;
+    [SerializeField] private float _jumpForce = 1500;
 
     private Rigidbody _rigidbody;
     private CapsuleCollider _capsuleCollider;
@@ -29,39 +31,48 @@ public class PlayerController : NetworkBehaviour
     /// <summary>
     /// 플레이어의 현재 색깔
     /// </summary>
-    private NetworkVariable<ColorType> _playerColor = new NetworkVariable<ColorType>();
     public NetworkVariable<ColorType> PlayerColor
     {
         get => _playerColor;
         set => _playerColor.Value = value.Value;
     }
+    private NetworkVariable<ColorType> _playerColor = new NetworkVariable<ColorType>();
 
     /// <summary>
     /// 플레이어가 조작하는 카메라
     /// </summary>
-    private GameObject _mainCamera;
     public GameObject MainCamera
     {
         get => _mainCamera;
     }
+    private GameObject _mainCamera;
 
     /// <summary>
     /// 현재 상호작용 중인 물체
     /// </summary>
-    private IInteractable _interactableInHand;
     public IInteractable InteractableInHand
     {
         get => _interactableInHand;
         set => _interactableInHand = value;
     }
+    private IInteractable _interactableInHand;
+
+    /// <summary>
+    /// 플레이어의 현재 속도
+    /// </summary>
+    public Vector3 Velocity
+    {
+        get => _velocity;
+    }
+    private Vector3 _velocity;
 
     public override void OnNetworkSpawn()
     {
+        _pastPosition = transform.position;
+
         _rigidbody = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
         _meshRenderer = GetComponent<MeshRenderer>();
-
-        _pastPosition = transform.position;
 
         // 서버에서는 플레이어 생성과 함께 색깔을 부여 (테스트용)
         if (IsServer)
@@ -80,6 +91,7 @@ public class PlayerController : NetworkBehaviour
             // 메인 카메라 생성
             _mainCamera = new GameObject("Main Camera");
             _mainCamera.transform.parent = transform;
+            _mainCamera.transform.position = new Vector3(0, 0.5f, 0);
             _mainCamera.AddComponent<Camera>();
             _mainCamera.AddComponent<AudioListener>();
             _mainCamera.tag = "MainCamera";
@@ -108,6 +120,41 @@ public class PlayerController : NetworkBehaviour
         }
     }
 
+    private void FixedUpdate()
+    {
+        if (IsOwner)
+        {
+            // 이동 속력 제한
+            Vector3 clampedVelocity = _rigidbody.velocity;
+            clampedVelocity.y = 0;
+
+            if (clampedVelocity.magnitude > _maxWalkSpeed)
+            {
+                clampedVelocity = clampedVelocity.normalized * _maxWalkSpeed;
+                clampedVelocity.y = _rigidbody.velocity.y;
+
+                _rigidbody.velocity = clampedVelocity;
+            }
+
+            // 접지 여부 확인
+            RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _capsuleCollider.height / 2 + 0.1f);
+
+            if (hits.Length > 0)
+            {
+                _isGrounded = true;
+                _rigidbody.drag = 10;
+            }
+            else
+            {
+                _isGrounded = false;
+                _rigidbody.drag = 0;
+            }
+        }
+
+        _velocity = (transform.position - _pastPosition) / Time.fixedDeltaTime;
+        _pastPosition = transform.position;
+    }
+
     private void Update()
     {
         // 로컬 플레이어가 아닌 경우 스킵
@@ -125,20 +172,19 @@ public class PlayerController : NetworkBehaviour
         _pitchAngle = Mathf.Clamp(_pitchAngle + mouseY * _rotateSpeed, -90, 90);
 
         // 이동
-        Vector3 moveDir = (v * transform.forward + h * transform.right).normalized * _walkSpeed;
-        _rigidbody.velocity = new Vector3(moveDir.x, _rigidbody.velocity.y, moveDir.z);
+        Vector3 moveDirection = (v * transform.forward + h * transform.right).normalized * _walkForce;
+        _rigidbody.AddForce(moveDirection.x, 0, moveDirection.z, ForceMode.Force);
 
         // 점프
         if (Input.GetKeyDown(KeyCode.Space) && _isGrounded)
         {
-            _rigidbody.velocity = new Vector3(moveDir.x, _jumpForce, moveDir.z);
-            _isGrounded = false;
+            _rigidbody.AddForce(0, _jumpForce, 0, ForceMode.Impulse);
         }
 
         // 화면 회전
         transform.Rotate(new Vector3(0, mouseX * _rotateSpeed, 0));
-        Vector3 cameraRot = _mainCamera.transform.rotation.eulerAngles;
-        _mainCamera.transform.rotation = Quaternion.Euler(_pitchAngle, cameraRot.y, cameraRot.z);
+        Vector3 cameraRotation = _mainCamera.transform.rotation.eulerAngles;
+        _mainCamera.transform.rotation = Quaternion.Euler(_pitchAngle, cameraRotation.y, cameraRotation.z);
 
         // 상호작용 키
         if (Input.GetKeyDown(KeyCode.E))
@@ -157,9 +203,12 @@ public class PlayerController : NetworkBehaviour
                 {
                     foreach (RaycastHit hit in hits)
                     {
+                        Debug.Log(hit.collider.gameObject.name);
+
                         // hit한 물체 중 상호작용 가능한 물체가 있다면...
                         if (hit.collider.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable))
                         {
+                            Debug.Log(hit.collider.gameObject.name);
                             // 상호작용 시도 후 성공 시 break
                             if (interactable.StartInteraction(this))
                             {
@@ -208,6 +257,7 @@ public class PlayerController : NetworkBehaviour
         _playerColor.Value = newColor;
     }
 
+    /*
     private void OnCollisionEnter(Collision collision)
     {
         // 접지 상태 갱신
@@ -216,6 +266,7 @@ public class PlayerController : NetworkBehaviour
             _isGrounded = true;
         }
     }
+    */
 
     /// <summary>
     /// 플레이어의 색깔을 갱신한다

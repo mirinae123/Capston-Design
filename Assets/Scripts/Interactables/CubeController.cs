@@ -3,35 +3,47 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using static UnityEngine.GraphicsBuffer;
 
 /// <summary>
-/// 상자를 나타내는 클래스
+/// 상자를 나타내는 클래스.
 /// </summary>
 public class CubeController : NetworkBehaviour, IInteractable
 {
     /// <summary>
-    /// Inspector 상에서 초기 색깔을 설정하는 데 쓰이는 변수
+    /// Inspector 상에서 초기 색깔을 설정하는 데 쓰이는 변수.
     /// </summary>
     [SerializeField] private ColorType _initColor;
 
     /// <summary>
-    /// 상자의 현재 색깔
+    /// 상자의 현재 색깔.
     /// </summary>
-    private NetworkVariable<ColorType> _cubeColor = new NetworkVariable<ColorType>();
     public NetworkVariable<ColorType> CubeColor
     {
         get => _cubeColor;
+        set => _cubeColor.Value = value.Value;
     }
+    private NetworkVariable<ColorType> _cubeColor = new NetworkVariable<ColorType>();
 
     /// <summary>
     /// 상자를 들고 있는 플레이어. 아무도 들고 있지 않으면 NULL이다.
     /// </summary>
-    private PlayerController _holdingPlayer;
     public PlayerController HoldingPlayer
     {
         get => _holdingPlayer;
         set => _holdingPlayer = value;
     }
+    private PlayerController _holdingPlayer;
+
+    /// <summary>
+    /// 색깔을 변경한 후, 새로운 색깔이 지속되는 시간.
+    /// </summary>
+    public float ColorChangeDuration
+    {
+        get => _colorChangeDuration;
+        set => _colorChangeDuration = value;
+    }
+    private float _colorChangeDuration = 0;
 
     private Rigidbody _rigidbody;
     private BoxCollider _boxCollider;
@@ -39,7 +51,10 @@ public class CubeController : NetworkBehaviour, IInteractable
 
     public override void OnNetworkSpawn()
     {
-        _cubeColor.Value = _initColor;
+        if (IsServer)
+        {
+            _cubeColor.Value = _initColor;
+        }
 
         _meshRenderer = GetComponent<MeshRenderer>();
         _rigidbody = GetComponent<Rigidbody>();
@@ -94,7 +109,31 @@ public class CubeController : NetworkBehaviour, IInteractable
         return true;
     }
 
-    private void Update()
+    public bool Activate(PlayerController player) {
+        return false;
+    }
+
+    public bool Deactivate(PlayerController player) {
+        return false;
+    }
+    
+    /// <summary>
+    /// 상자 색깔을 원래(_initColor)의 반대로 변경한다.
+    /// </summary>
+    public void ChangeCubeColor()
+    {
+        _cubeColor.Value = (_initColor == ColorType.Red) ? ColorType.Blue : ColorType.Red;
+    }
+
+    /// <summary>
+    /// 상자 색깔을 원래 색깔(_initColor)로 되돌린다.
+    /// </summary>
+    public void RestoreCubeColor()
+    {
+        _cubeColor.Value = _initColor;
+    }
+
+    private void FixedUpdate()
     {
         // 상자의 위치는 Owner에 의해서만 갱신되도록 한다 (서버 또는 들고 있는 사람)
         if (!IsOwner)
@@ -106,7 +145,26 @@ public class CubeController : NetworkBehaviour, IInteractable
         if (_holdingPlayer != null)
         {
             Vector3 target = _holdingPlayer.MainCamera.transform.position + _holdingPlayer.MainCamera.transform.forward * 3;
-            _rigidbody.velocity = (target - transform.position) * 10;
+            _rigidbody.velocity = (target - transform.position) * 10 + _holdingPlayer.Velocity;
+        }
+    }
+
+    private void Update()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        // 색깔 변환 지속 시간이 설정돼 있으면 시간을 잰다
+        if (_colorChangeDuration > 0.0f)
+        {
+            _colorChangeDuration -= Time.deltaTime;
+
+            if (_colorChangeDuration <= 0.0f)
+            {
+                RestoreCubeColor();
+            }
         }
     }
 

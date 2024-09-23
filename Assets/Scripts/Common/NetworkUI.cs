@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 멀티플레이어 테스트 UI를 지원하는 싱글톤 클래스
+/// 멀티플레이어 테스트 UI를 지원하는 싱글톤 클래스.
 /// </summary>
 public class NetworkUI : MonoBehaviour
 {

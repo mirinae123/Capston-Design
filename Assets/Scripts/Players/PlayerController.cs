@@ -14,10 +14,9 @@ using UnityEngine.EventSystems;
 public class PlayerController : NetworkBehaviour
 {
     // 이동 속력, 최대 이동 속력, 회전 속력, 점프력
-    [SerializeField] private float _walkForce = 8000;
-    [SerializeField] private float _maxWalkSpeed = 4;
+    [SerializeField] private float _walkSpeed = 10;
     [SerializeField] private float _rotateSpeed = 2;
-    [SerializeField] private float _jumpForce = 1500;
+    [SerializeField] private float _jumpSpeed = 10;
 
     private Rigidbody _rigidbody;
     private CapsuleCollider _capsuleCollider;
@@ -27,6 +26,9 @@ public class PlayerController : NetworkBehaviour
     private Vector3 _pastPosition;
     private float _pitchAngle;
     private bool _isGrounded = true;
+
+    // 테스트용 화면 고정 변수
+    private bool _isFixed = false;
 
     /// <summary>
     /// 플레이어의 현재 색깔
@@ -122,35 +124,6 @@ public class PlayerController : NetworkBehaviour
 
     private void FixedUpdate()
     {
-        if (IsOwner)
-        {
-            // 이동 속력 제한
-            Vector3 clampedVelocity = _rigidbody.velocity;
-            clampedVelocity.y = 0;
-
-            if (clampedVelocity.magnitude > _maxWalkSpeed)
-            {
-                clampedVelocity = clampedVelocity.normalized * _maxWalkSpeed;
-                clampedVelocity.y = _rigidbody.velocity.y;
-
-                _rigidbody.velocity = clampedVelocity;
-            }
-
-            // 접지 여부 확인
-            RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _capsuleCollider.height / 2 + 0.1f);
-
-            if (hits.Length > 0)
-            {
-                _isGrounded = true;
-                _rigidbody.drag = 10;
-            }
-            else
-            {
-                _isGrounded = false;
-                _rigidbody.drag = 0;
-            }
-        }
-
         _velocity = (transform.position - _pastPosition) / Time.fixedDeltaTime;
         _pastPosition = transform.position;
     }
@@ -172,19 +145,37 @@ public class PlayerController : NetworkBehaviour
         _pitchAngle = Mathf.Clamp(_pitchAngle + mouseY * _rotateSpeed, -90, 90);
 
         // 이동
-        Vector3 moveDirection = (v * transform.forward + h * transform.right).normalized * _walkForce;
-        _rigidbody.AddForce(moveDirection.x, 0, moveDirection.z, ForceMode.Force);
+        Vector3 moveDirection = (v * transform.forward + h * transform.right).normalized * _walkSpeed;
+        _rigidbody.velocity = new Vector3(moveDirection.x, _rigidbody.velocity.y, moveDirection.z);
+
+        // 접지 여부 확인
+        RaycastHit[] hitss = Physics.RaycastAll(transform.position, Vector3.down, _capsuleCollider.height / 2 + 0.1f);
+
+        if (hitss.Length > 0)
+        {
+            _isGrounded = true;
+        }
+        else
+        {
+            _isGrounded = false;
+        }
 
         // 점프
         if (Input.GetKeyDown(KeyCode.Space) && _isGrounded)
         {
-            _rigidbody.AddForce(0, _jumpForce, 0, ForceMode.Impulse);
+            Vector3 newVelocity = _rigidbody.velocity;
+            newVelocity.y = _jumpSpeed;
+
+            _rigidbody.velocity = newVelocity;
         }
 
         // 화면 회전
-        transform.Rotate(new Vector3(0, mouseX * _rotateSpeed, 0));
-        Vector3 cameraRotation = _mainCamera.transform.rotation.eulerAngles;
-        _mainCamera.transform.rotation = Quaternion.Euler(_pitchAngle, cameraRotation.y, cameraRotation.z);
+        if (!_isFixed)  // 테스트용 화면 고정
+        {
+            transform.Rotate(new Vector3(0, mouseX * _rotateSpeed, 0));
+            Vector3 cameraRotation = _mainCamera.transform.rotation.eulerAngles;
+            _mainCamera.transform.rotation = Quaternion.Euler(_pitchAngle, cameraRotation.y, cameraRotation.z);
+        }
 
         // 상호작용 키
         if (Input.GetKeyDown(KeyCode.E))
@@ -203,12 +194,9 @@ public class PlayerController : NetworkBehaviour
                 {
                     foreach (RaycastHit hit in hits)
                     {
-                        Debug.Log(hit.collider.gameObject.name);
-
                         // hit한 물체 중 상호작용 가능한 물체가 있다면...
                         if (hit.collider.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable))
                         {
-                            Debug.Log(hit.collider.gameObject.name);
                             // 상호작용 시도 후 성공 시 break
                             if (interactable.StartInteraction(this))
                             {
@@ -245,6 +233,12 @@ public class PlayerController : NetworkBehaviour
 
             ChangePlayerColorServerRpc(newColor);
         }
+
+        // 테스트용: P를 누르면 화면 회전 고정
+        if (Input.GetKeyDown(KeyCode.P))
+        {
+            _isFixed = !_isFixed;
+        }
     }
 
     /// <summary>
@@ -257,17 +251,6 @@ public class PlayerController : NetworkBehaviour
         _playerColor.Value = newColor;
     }
 
-    /*
-    private void OnCollisionEnter(Collision collision)
-    {
-        // 접지 상태 갱신
-        if (collision.gameObject.CompareTag("Ground"))
-        {
-            _isGrounded = true;
-        }
-    }
-    */
-
     /// <summary>
     /// 플레이어의 색깔을 갱신한다
     /// </summary>
@@ -279,11 +262,12 @@ public class PlayerController : NetworkBehaviour
         int newLayer = (after == ColorType.Red) ? LayerMask.NameToLayer("Red") : LayerMask.NameToLayer("Blue");
         int excludedLayer = (after == ColorType.Red) ? LayerMask.GetMask("Blue") : LayerMask.GetMask("Red");
 
-        // 색깔이 다른 플레이어는 투명도 추가
+        /* 색깔이 다른 플레이어는 투명도 추가
         if (after != MultiplayerManager.Instance.LocalPlayer.PlayerColor.Value)
         {
             newColor.a = 0.7f;
         }
+        */
 
         _meshRenderer.material.color = newColor;
         gameObject.layer = newLayer;

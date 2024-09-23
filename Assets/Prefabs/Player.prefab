@@ -97,7 +97,7 @@ Rigidbody:
   m_GameObject: {fileID: 73950241232285841}
   serializedVersion: 4
   m_Mass: 60
-  m_Drag: 10
+  m_Drag: 0
   m_AngularDrag: 0
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
@@ -202,7 +202,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 089affdb64c929a4486317b22d5c8a98, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _walkForce: 8000
-  _maxWalkSpeed: 4
+  _walkSpeed: 10
   _rotateSpeed: 2
-  _jumpForce: 1500
+  _jumpSpeed: 20

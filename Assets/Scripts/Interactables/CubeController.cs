@@ -2,6 +2,7 @@ using JetBrains.Annotations;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
+using UnityEditor;
 using UnityEngine;
 using static UnityEngine.GraphicsBuffer;
 
@@ -133,37 +134,29 @@ public class CubeController : NetworkBehaviour, IInteractable
         _cubeColor.Value = _initColor;
     }
 
-    private void FixedUpdate()
-    {
-        // 상자의 위치는 Owner에 의해서만 갱신되도록 한다 (서버 또는 들고 있는 사람)
-        if (!IsOwner)
-        {
-            return;
-        }
-
-        // 상자를 든 플레이어 앞으로 이동
-        if (_holdingPlayer != null)
-        {
-            Vector3 target = _holdingPlayer.MainCamera.transform.position + _holdingPlayer.MainCamera.transform.forward * 3;
-            _rigidbody.velocity = (target - transform.position) * 10 + _holdingPlayer.Velocity;
-        }
-    }
-
     private void Update()
     {
-        if (!IsServer)
+        if (IsOwner)
         {
-            return;
+            // 상자를 들고 있는 플레이어(Owner)가 상자 이동을 담당한다
+            if (_holdingPlayer != null)
+            {
+                Vector3 target = _holdingPlayer.MainCamera.transform.position + _holdingPlayer.MainCamera.transform.forward * 3f;
+                _rigidbody.velocity = (target - transform.position) * 16f;
+            }
         }
 
-        // 색깔 변환 지속 시간이 설정돼 있으면 시간을 잰다
-        if (_colorChangeDuration > 0.0f)
+        if (IsServer)
         {
-            _colorChangeDuration -= Time.deltaTime;
-
-            if (_colorChangeDuration <= 0.0f)
+            // 서버에서 색깔 변환 지속 시간을 담당한다
+            if (_colorChangeDuration > 0f)
             {
-                RestoreCubeColor();
+                _colorChangeDuration -= Time.deltaTime;
+
+                if (_colorChangeDuration <= 0f)
+                {
+                    RestoreCubeColor();
+                }
             }
         }
     }
@@ -179,11 +172,12 @@ public class CubeController : NetworkBehaviour, IInteractable
         int newLayer = (after == ColorType.Red) ? LayerMask.NameToLayer("Red") : LayerMask.NameToLayer("Blue");
         int excludedLayer = (after == ColorType.Red) ? LayerMask.GetMask("Blue") : LayerMask.GetMask("Red");
 
-        // 색깔이 다른 물체는 투명도 추가
+        /* 색깔이 다른 물체는 투명도 추가
         if (after != MultiplayerManager.Instance.LocalPlayer.PlayerColor.Value)                                                             
         {
             newColor.a = 0.7f;
         }
+        */
 
         _meshRenderer.material.color = newColor;
         gameObject.layer = newLayer;

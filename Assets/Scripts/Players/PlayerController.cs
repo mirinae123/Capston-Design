@@ -21,8 +21,7 @@ public class PlayerController : NetworkBehaviour
 
     private Rigidbody _rigidbody;
     private CapsuleCollider _capsuleCollider;
-    private SkinnedMeshRenderer _skinnedMeshRenderer;
-    private Animator _animator;
+    private MeshRenderer _meshRenderer;
 
     // 플레이어 조작에 쓰이는 보조 변수
     private Vector3 _pastPosition;
@@ -76,8 +75,7 @@ public class PlayerController : NetworkBehaviour
 
         _rigidbody = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
-        _skinnedMeshRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
-        _animator = GetComponentInChildren<Animator>();
+        _meshRenderer = GetComponentInChildren<MeshRenderer>();
 
         // 서버에서는 플레이어 생성과 함께 색깔을 부여 (테스트용)
         if (IsServer)
@@ -138,8 +136,6 @@ public class PlayerController : NetworkBehaviour
         {
             return;
         }
-
-        _animator.SetFloat("velocity", _rigidbody.velocity.magnitude);
 
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
@@ -274,7 +270,7 @@ public class PlayerController : NetworkBehaviour
         }
         */
 
-        _skinnedMeshRenderer.material.color = newColor;
+        _meshRenderer.material.color = newColor;
         gameObject.layer = newLayer;
 
         // 다른 색깔 물체와는 물리 상호작용하지 않도록 지정

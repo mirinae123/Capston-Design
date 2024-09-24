@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using Unity.Burst.CompilerServices;
 using Unity.Netcode;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -20,7 +21,8 @@ public class PlayerController : NetworkBehaviour
 
     private Rigidbody _rigidbody;
     private CapsuleCollider _capsuleCollider;
-    private MeshRenderer _meshRenderer;
+    private SkinnedMeshRenderer _skinnedMeshRenderer;
+    private Animator _animator;
 
     // 플레이어 조작에 쓰이는 보조 변수
     private Vector3 _pastPosition;
@@ -74,7 +76,8 @@ public class PlayerController : NetworkBehaviour
 
         _rigidbody = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
-        _meshRenderer = GetComponent<MeshRenderer>();
+        _skinnedMeshRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
+        _animator = GetComponentInChildren<Animator>();
 
         // 서버에서는 플레이어 생성과 함께 색깔을 부여 (테스트용)
         if (IsServer)
@@ -93,7 +96,7 @@ public class PlayerController : NetworkBehaviour
             // 메인 카메라 생성
             _mainCamera = new GameObject("Main Camera");
             _mainCamera.transform.parent = transform;
-            _mainCamera.transform.position = new Vector3(0, 0.5f, 0);
+            _mainCamera.transform.position = new Vector3(0f, 0.5f, 0.3f);
             _mainCamera.AddComponent<Camera>();
             _mainCamera.AddComponent<AudioListener>();
             _mainCamera.tag = "MainCamera";
@@ -135,6 +138,8 @@ public class PlayerController : NetworkBehaviour
         {
             return;
         }
+
+        _animator.SetFloat("velocity", _rigidbody.velocity.magnitude);
 
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
@@ -269,7 +274,7 @@ public class PlayerController : NetworkBehaviour
         }
         */
 
-        _meshRenderer.material.color = newColor;
+        _skinnedMeshRenderer.material.color = newColor;
         gameObject.layer = newLayer;
 
         // 다른 색깔 물체와는 물리 상호작용하지 않도록 지정

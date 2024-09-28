@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 1190865507846445262}
   - component: {fileID: 4193992477282621276}
   - component: {fileID: 3677110091299806169}
+  - component: {fileID: 6082467177090370918}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -154,7 +155,19 @@ MonoBehaviour:
   _walkSpeed: 10
   _rotateSpeed: 2
   _jumpSpeed: 20
-  _meshRenderer: {fileID: 4814256734986795751}
+--- !u!114 &6082467177090370918
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 73950241232285841}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb771de1ca404d540bbe332e3fb66896, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _skinnedMeshRenderer: {fileID: 4814256734986795751}
 --- !u!1001 &9087670914373326928
 PrefabInstance:
   m_ObjectHideFlags: 0

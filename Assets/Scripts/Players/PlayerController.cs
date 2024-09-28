@@ -19,8 +19,6 @@ public class PlayerController : NetworkBehaviour
     [SerializeField] private float _rotateSpeed = 2;
     [SerializeField] private float _jumpSpeed = 10;
 
-    [SerializeField] private SkinnedMeshRenderer _meshRenderer;
-
     private Rigidbody _rigidbody;
     private CapsuleCollider _capsuleCollider;
 
@@ -77,6 +75,12 @@ public class PlayerController : NetworkBehaviour
         _rigidbody = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
 
+        // 플레이어의 색깔이 변하면 함수 호출하도록 지정
+        _playerColor.OnValueChanged += (ColorType before, ColorType after) =>
+        {
+            OnPlayerColorChanged(before, after);
+        };
+
         // 서버에서는 플레이어 생성과 함께 색깔을 부여 (테스트용)
         if (IsServer)
         {
@@ -101,12 +105,6 @@ public class PlayerController : NetworkBehaviour
 
             Cursor.lockState = CursorLockMode.Locked;
         }
-
-        // 플레이어의 색깔이 변하면 함수 호출하도록 지정
-        _playerColor.OnValueChanged += (ColorType before, ColorType after) =>
-        {
-            OnPlayerColorChanged(before, after);
-        };
 
         // 플레이어 최초 생성 후 초기화 작업을 수행
         // MultiplayerManager의 LocalPlayer를 참조하므로, 해당 변수가 지정될 때까지 대기
@@ -259,18 +257,9 @@ public class PlayerController : NetworkBehaviour
     /// <param name="after">변경 후 색깔</param>
     private void OnPlayerColorChanged(ColorType before, ColorType after)
     {
-        Color newColor = (after == ColorType.Red) ? new Color(1, 0, 0) : new Color(0, 0, 1);
         int newLayer = (after == ColorType.Red) ? LayerMask.NameToLayer("Red") : LayerMask.NameToLayer("Blue");
         int excludedLayer = (after == ColorType.Red) ? LayerMask.GetMask("Blue") : LayerMask.GetMask("Red");
 
-        /* 색깔이 다른 플레이어는 투명도 추가
-        if (after != MultiplayerManager.Instance.LocalPlayer.PlayerColor.Value)
-        {
-            newColor.a = 0.7f;
-        }
-        */
-
-        _meshRenderer.material.color = newColor;
         gameObject.layer = newLayer;
 
         // 다른 색깔 물체와는 물리 상호작용하지 않도록 지정

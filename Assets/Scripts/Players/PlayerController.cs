@@ -19,9 +19,10 @@ public class PlayerController : NetworkBehaviour
     [SerializeField] private float _rotateSpeed = 2;
     [SerializeField] private float _jumpSpeed = 10;
 
+    [SerializeField] private SkinnedMeshRenderer _meshRenderer;
+
     private Rigidbody _rigidbody;
     private CapsuleCollider _capsuleCollider;
-    private MeshRenderer _meshRenderer;
 
     // 플레이어 조작에 쓰이는 보조 변수
     private Vector3 _pastPosition;
@@ -75,7 +76,6 @@ public class PlayerController : NetworkBehaviour
 
         _rigidbody = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
-        _meshRenderer = GetComponentInChildren<MeshRenderer>();
 
         // 서버에서는 플레이어 생성과 함께 색깔을 부여 (테스트용)
         if (IsServer)

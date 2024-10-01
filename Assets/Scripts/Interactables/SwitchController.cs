@@ -30,18 +30,20 @@ public class SwitchController : NetworkBehaviour, IInteractable
     [SerializeField] private GameObject _connectedGameObject;
 
     /// <summary>
-    /// 스위치가 활성화할 게임 오브젝트의 IInteractable 클래스
+    /// 스위치가 활성화할 게임 오브젝트의 IActivatable 클래스
     /// </summary>
-    private IInteractable _connectedInteractable;
+    private IActivatable _connectedActivatable;
 
-    public bool Activate(PlayerController player)
+    public bool IsInteractable(PlayerController player)
     {
-        return false;
-    }
-
-    public bool Deactivate(PlayerController player)
-    {
-        return false;
+        if (_isRequireBoth)
+        {
+            return true;
+        }
+        else
+        {
+            return _switchColor == player.PlayerColor.Value;
+        }
     }
 
     public bool StartInteraction(PlayerController player)
@@ -52,7 +54,7 @@ public class SwitchController : NetworkBehaviour, IInteractable
             // 스위치 주변에 있는 플레이어 수를 확인
             if (GetNumberOfPlayersNearby() >= 2)
             {
-                _connectedInteractable.Activate(player);
+                _connectedActivatable.Activate(player);
                 return true;
             }
             else
@@ -66,13 +68,13 @@ public class SwitchController : NetworkBehaviour, IInteractable
             // 스위치 색깔이 None이면 아무나 누를 수 있다
             if (_switchColor == ColorType.None)
             {
-                _connectedInteractable.Activate(player);
+                _connectedActivatable.Activate(player);
                 return true;
             }
             // 그렇지 않으면 플레이어 색깔을 확인한다
             else if (_switchColor == player.PlayerColor.Value)
             {
-                _connectedInteractable.Activate(player);
+                _connectedActivatable.Activate(player);
                 return true;
             }
             else
@@ -89,21 +91,21 @@ public class SwitchController : NetworkBehaviour, IInteractable
 
     public override void OnNetworkSpawn()
     {
-        _connectedInteractable = _connectedGameObject.GetComponent<IInteractable>();
+        _connectedActivatable = _connectedGameObject.GetComponent<IActivatable>();
 
         MeshRenderer meshRenderer = GetComponent<MeshRenderer>();
 
         if (_switchColor == ColorType.None)
         {
-            meshRenderer.material.color = new Color(1, 0, 1);
+            meshRenderer.material.color = new Color(1f, 0.3f, 1f);
         }
         else if (_switchColor == ColorType.Red)
         {
-            meshRenderer.material.color = new Color(1, 0, 0);
+            meshRenderer.material.color = new Color(1f, 0.3f, 0.3f);
         }
         else
         {
-            meshRenderer.material.color = new Color(0, 0, 1);
+            meshRenderer.material.color = new Color(0.3f, 0.3f, 1f);
         }
     }
 

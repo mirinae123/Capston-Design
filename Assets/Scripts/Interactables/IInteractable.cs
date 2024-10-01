@@ -22,16 +22,9 @@ public interface IInteractable
     public bool StopInteraction(PlayerController player);
 
     /// <summary>
-    /// 물체를 활성화한다. (문, 상자 등)
+    /// 플레이어가 물체와 상호작용할 수 있는지 반환한다.
     /// </summary>
     /// <param name="player">대상 플레이어</param>
-    /// <returns></returns>
-    public bool Activate(PlayerController player);
-
-    /// <summary>
-    /// 물체를 비활성화한다. (문, 상자 등)
-    /// </summary>
-    /// <param name="player">대상 플레이어</param>
-    /// <returns></returns>
-    public bool Deactivate(PlayerController player);
+    /// <returns>상호작용 가능 여부</returns>
+    public bool IsInteractable(PlayerController player);
 }

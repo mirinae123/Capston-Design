@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEditor;
 using UnityEngine;
-using static UnityEngine.GraphicsBuffer;
+using UnityEngine.UI;
 
 /// <summary>
 /// 상자를 나타내는 클래스.
@@ -37,18 +37,27 @@ public class CubeController : NetworkBehaviour, IInteractable
     private PlayerController _holdingPlayer;
 
     /// <summary>
-    /// 색깔을 변경한 후, 새로운 색깔이 지속되는 시간.
+    /// 색깔을 변경한 후, 새로운 색깔이 지속될 시간.
     /// </summary>
     public float ColorChangeDuration
     {
-        get => _colorChangeDuration;
-        set => _colorChangeDuration = value;
+        get => _colorChangeDuration.Value;
+        set => _colorChangeDuration.Value = value;
     }
-    private float _colorChangeDuration = 0;
+    private NetworkVariable<float> _colorChangeDuration = new NetworkVariable<float>();
+
+    /// <summary>
+    /// 색깔이 원래대로 돌아올 때까지 남은 시간.
+    /// </summary>
+    public float ColorChangeTimeLeft
+    {
+        get => _colorChangeTimeLeft.Value;
+        set => _colorChangeTimeLeft.Value = value;
+    }
+    private NetworkVariable<float> _colorChangeTimeLeft = new NetworkVariable<float>();
 
     private Rigidbody _rigidbody;
     private BoxCollider _boxCollider;
-    private MeshRenderer _meshRenderer;
 
     public override void OnNetworkSpawn()
     {
@@ -57,7 +66,6 @@ public class CubeController : NetworkBehaviour, IInteractable
             _cubeColor.Value = _initColor;
         }
 
-        _meshRenderer = GetComponent<MeshRenderer>();
         _rigidbody = GetComponent<Rigidbody>();
         _boxCollider = GetComponent<BoxCollider>();
 
@@ -87,8 +95,8 @@ public class CubeController : NetworkBehaviour, IInteractable
     /// <param name="player">상호작용할 플레이어</param>
     public bool StartInteraction(PlayerController player)
     {
-        // 이미 다른 사람이 들고 있는 상자이거나, 색깔이 일치하지 않으면 무시
-        if (_holdingPlayer != null || _cubeColor.Value != player.PlayerColor.Value)
+        // 색깔이 일치하지 않으면 무시
+        if (_cubeColor.Value != player.PlayerColor.Value)
         {
             return false;
         }
@@ -110,12 +118,9 @@ public class CubeController : NetworkBehaviour, IInteractable
         return true;
     }
 
-    public bool Activate(PlayerController player) {
-        return false;
-    }
-
-    public bool Deactivate(PlayerController player) {
-        return false;
+    public bool IsInteractable(PlayerController player)
+    {
+        return player.PlayerColor.Value == _cubeColor.Value;
     }
     
     /// <summary>
@@ -149,11 +154,11 @@ public class CubeController : NetworkBehaviour, IInteractable
         if (IsServer)
         {
             // 서버에서 색깔 변환 지속 시간을 담당한다
-            if (_colorChangeDuration > 0f)
+            if (_colorChangeTimeLeft.Value > 0f)
             {
-                _colorChangeDuration -= Time.deltaTime;
+                _colorChangeTimeLeft.Value -= Time.deltaTime;
 
-                if (_colorChangeDuration <= 0f)
+                if (_colorChangeTimeLeft.Value <= 0f)
                 {
                     RestoreCubeColor();
                 }
@@ -168,18 +173,9 @@ public class CubeController : NetworkBehaviour, IInteractable
     /// <param name="after">변경 후 색깔</param>
     private void OnCubeColorChanged(ColorType before, ColorType after)
     {
-        Color newColor = (after == ColorType.Red) ? new Color(1, 0, 0) : new Color(0, 0, 1);
         int newLayer = (after == ColorType.Red) ? LayerMask.NameToLayer("Red") : LayerMask.NameToLayer("Blue");
         int excludedLayer = (after == ColorType.Red) ? LayerMask.GetMask("Blue") : LayerMask.GetMask("Red");
 
-        /* 색깔이 다른 물체는 투명도 추가
-        if (after != MultiplayerManager.Instance.LocalPlayer.PlayerColor.Value)                                                             
-        {
-            newColor.a = 0.7f;
-        }
-        */
-
-        _meshRenderer.material.color = newColor;
         gameObject.layer = newLayer;
 
         // 다른 색깔 물체와는 물리 상호작용하지 않도록 지정

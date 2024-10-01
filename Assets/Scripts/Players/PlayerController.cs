@@ -1,11 +1,16 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Security.Claims;
-using System.Text;
-using Unity.Burst.CompilerServices;
+//using System;
+//using System.Collections;
+//using System.Collections.Generic;
+//using System.Linq;
+//using System.Runtime.CompilerServices;
+//using System.Security.Claims;
+//using System.Text;
+//using Unity.Burst.CompilerServices;
+using System.Data;
 using Unity.Netcode;
-using Unity.VisualScripting;
+using UnityEditor;
+
+//using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -21,14 +26,18 @@ public class PlayerController : NetworkBehaviour
 
     private Rigidbody _rigidbody;
     private CapsuleCollider _capsuleCollider;
+    private Animator _animator;
 
     // 플레이어 조작에 쓰이는 보조 변수
-    private Vector3 _pastPosition;
     private float _pitchAngle;
     private bool _isGrounded = true;
 
     // 테스트용 화면 고정 변수
     private bool _isFixed = false;
+
+    // 플레이어가 보고 있는 물체
+    private GameObject _objectOnPointer = null;
+    private IInteractable _interactableOnPointer = null;
 
     /// <summary>
     /// 플레이어의 현재 색깔
@@ -59,21 +68,11 @@ public class PlayerController : NetworkBehaviour
     }
     private IInteractable _interactableInHand;
 
-    /// <summary>
-    /// 플레이어의 현재 속도
-    /// </summary>
-    public Vector3 Velocity
-    {
-        get => _velocity;
-    }
-    private Vector3 _velocity;
-
     public override void OnNetworkSpawn()
     {
-        _pastPosition = transform.position;
-
         _rigidbody = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
+        _animator = GetComponentInChildren<Animator>();
 
         // 플레이어의 색깔이 변하면 함수 호출하도록 지정
         _playerColor.OnValueChanged += (ColorType before, ColorType after) =>
@@ -98,7 +97,7 @@ public class PlayerController : NetworkBehaviour
             // 메인 카메라 생성
             _mainCamera = new GameObject("Main Camera");
             _mainCamera.transform.parent = transform;
-            _mainCamera.transform.position = new Vector3(0f, 0.5f, 0.3f);
+            _mainCamera.transform.position = new Vector3(0f, 0.6f, 0.3f);
             _mainCamera.AddComponent<Camera>();
             _mainCamera.AddComponent<AudioListener>();
             _mainCamera.tag = "MainCamera";
@@ -119,12 +118,6 @@ public class PlayerController : NetworkBehaviour
         {
             _playerColor.OnValueChanged.Invoke(_playerColor.Value, _playerColor.Value);
         }
-    }
-
-    private void FixedUpdate()
-    {
-        _velocity = (transform.position - _pastPosition) / Time.fixedDeltaTime;
-        _pastPosition = transform.position;
     }
 
     private void Update()
@@ -148,9 +141,9 @@ public class PlayerController : NetworkBehaviour
         _rigidbody.velocity = new Vector3(moveDirection.x, _rigidbody.velocity.y, moveDirection.z);
 
         // 접지 여부 확인
-        RaycastHit[] hitss = Physics.RaycastAll(transform.position, Vector3.down, _capsuleCollider.height / 2 + 0.1f);
+        RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _capsuleCollider.height / 2 + 0.2f);
 
-        if (hitss.Length > 0)
+        if (hits.Length > 0)
         {
             _isGrounded = true;
         }
@@ -176,6 +169,44 @@ public class PlayerController : NetworkBehaviour
             _mainCamera.transform.rotation = Quaternion.Euler(_pitchAngle, cameraRotation.y, cameraRotation.z);
         }
 
+        // 플레이어가 보고 있는 물체 확인
+        if (_interactableInHand == null)
+        {
+            Physics.Raycast(MainCamera.transform.position, MainCamera.transform.forward, out RaycastHit hit, 5f);
+
+            if (hit.collider == null)
+            {
+                if (_objectOnPointer != null)
+                {
+                    _objectOnPointer.GetComponent<Outline>().enabled = false;
+                    _objectOnPointer = null;
+                }
+            }
+            else
+            {
+                if (_objectOnPointer != hit.collider.gameObject)
+                {
+                    if (_objectOnPointer != null)
+                    {
+                        _objectOnPointer.GetComponent<Outline>().enabled = false;
+                        _objectOnPointer = null;
+                    }
+
+                    if (hit.collider.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable) && interactable.IsInteractable(this))
+                    {
+                        _objectOnPointer = hit.collider.gameObject;
+                        _interactableOnPointer = interactable;
+                        _objectOnPointer.GetComponent<Outline>().enabled = true;
+                    }
+                }
+                else if (_objectOnPointer != null && !_interactableOnPointer.IsInteractable(this))
+                {
+                    _objectOnPointer.GetComponent<Outline>().enabled = false;
+                    _objectOnPointer = null;
+                }
+            }
+        }
+
         // 상호작용 키
         if (Input.GetKeyDown(KeyCode.E))
         {
@@ -185,25 +216,13 @@ public class PlayerController : NetworkBehaviour
                 _interactableInHand.StopInteraction(this);
             }
             // 상호작용 중인 물체가 없다면 Raycast로 탐색
-            else
+            else if (_objectOnPointer != null)
             {
-                RaycastHit[] hits = Physics.RaycastAll(transform.position, MainCamera.transform.forward, 10);
+                _objectOnPointer.GetComponent<IInteractable>().StartInteraction(this);
 
-                if (hits.Length > 0)
-                {
-                    foreach (RaycastHit hit in hits)
-                    {
-                        // hit한 물체 중 상호작용 가능한 물체가 있다면...
-                        if (hit.collider.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable))
-                        {
-                            // 상호작용 시도 후 성공 시 break
-                            if (interactable.StartInteraction(this))
-                            {
-                                break;
-                            }
-                        }
-                    }
-                }
+                // 하이라이트 제거
+                _objectOnPointer.GetComponent<Outline>().enabled = false;
+                _objectOnPointer = null;
             }
         }
 
@@ -238,6 +257,8 @@ public class PlayerController : NetworkBehaviour
         {
             _isFixed = !_isFixed;
         }
+
+        _animator.SetFloat("speed", _rigidbody.velocity.magnitude);
     }
 
     /// <summary>

@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 /// <summary>
 /// 문을 나타내는 클래스.
 /// </summary>
-public class DoorController : NetworkBehaviour, IInteractable
+public class DoorController : NetworkBehaviour, IActivatable
 {
     /// <summary>
     /// 현재 열려 있는지 여부.
@@ -56,16 +56,6 @@ public class DoorController : NetworkBehaviour, IInteractable
     {
         CloseDoorServerRpc();
         return true;
-    }
-
-    public bool StartInteraction(PlayerController player)
-    {
-        return false;
-    }
-
-    public bool StopInteraction(PlayerController player)
-    {
-        return false;
     }
 
     /// <summary>

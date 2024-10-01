@@ -13,6 +13,11 @@ public class ColorChanger : NetworkBehaviour
     /// </summary>
     [SerializeField] private float _colorChangeDuration;
 
+    public override void OnNetworkSpawn()
+    {
+        GetComponent<MeshRenderer>().material.color = new Color(1f, 0.3f, 1f);
+    }
+
     private void OnCollisionEnter(Collision collision)
     {
         if (!IsServer)
@@ -44,7 +49,10 @@ public class ColorChanger : NetworkBehaviour
             // 상자인 경우: 지속 시간 적용
             if (interactable is CubeController)
             {
-                (interactable as CubeController).ColorChangeDuration = _colorChangeDuration;
+                CubeController cubeController = (CubeController)interactable;
+
+                cubeController.ColorChangeDuration = _colorChangeDuration;
+                cubeController.ColorChangeTimeLeft = _colorChangeDuration;
             }
         }
     }

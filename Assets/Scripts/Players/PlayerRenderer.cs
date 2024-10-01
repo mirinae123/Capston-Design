@@ -36,7 +36,7 @@ public class PlayerRenderer : NetworkBehaviour
 
     private void OnPlayerColorChanged(ColorType before, ColorType after)
     {
-        Color newColor = (after == ColorType.Red) ? new Color(1, 0, 0) : new Color(0, 0, 1);
+        Color newColor = (after == ColorType.Red) ? new Color(1f, 0.3f, 0.3f) : new Color(0.3f, 0.3f, 1f);
 
         _skinnedMeshRenderer.material.color = newColor;
     }

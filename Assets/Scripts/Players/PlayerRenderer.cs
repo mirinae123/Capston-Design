@@ -5,9 +5,17 @@ using UnityEngine;
 
 public class PlayerRenderer : NetworkBehaviour
 {
-    [SerializeField] private SkinnedMeshRenderer _skinnedMeshRenderer;
+    [SerializeField] private GameObject _redPlayerPrefab;
+    [SerializeField] private GameObject _bluePlayerPrefab;
+
+    [SerializeField] private RuntimeAnimatorController _redAnimatorController;
+    [SerializeField] private RuntimeAnimatorController _blueAnimatorController;
 
     private PlayerController _playerController;
+
+    private GameObject _playerMeshObject;
+    private SkinnedMeshRenderer _skinnedMeshRenderer;
+    private Animator _animator;
 
     public override void OnNetworkSpawn()
     {
@@ -34,8 +42,40 @@ public class PlayerRenderer : NetworkBehaviour
         }
     }
 
+    private void Update()
+    {
+        if (_animator == null)
+        {
+            return;
+        }
+
+        _animator.SetFloat("speed", _playerController.Velocity.magnitude);
+    }
+
     private void OnPlayerColorChanged(ColorType before, ColorType after)
     {
+        if (_playerMeshObject != null)
+        {
+            Destroy(_playerMeshObject);
+        }
+
+        if (after == ColorType.Red)
+        {
+            _playerMeshObject = Instantiate(_redPlayerPrefab, transform);
+            _playerMeshObject.transform.localPosition = new Vector3(-1.2f, -1f, 0f);
+            _animator = _playerMeshObject.AddComponent<Animator>();
+            _animator.runtimeAnimatorController = _redAnimatorController;
+        }
+        if (after == ColorType.Blue)
+        {
+            _playerMeshObject = Instantiate(_bluePlayerPrefab, transform);
+            _playerMeshObject.transform.localPosition = new Vector3(-1.2f, -1f, 0f);
+            _animator = _playerMeshObject.AddComponent<Animator>();
+            _animator.runtimeAnimatorController = _blueAnimatorController;
+        }
+
+        _skinnedMeshRenderer = _playerMeshObject.GetComponentInChildren<SkinnedMeshRenderer>();
+
         Color newColor = (after == ColorType.Red) ? new Color(1f, 0.3f, 0.3f) : new Color(0.3f, 0.3f, 1f);
 
         _skinnedMeshRenderer.material.color = newColor;

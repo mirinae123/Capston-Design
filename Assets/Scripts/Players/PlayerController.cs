@@ -6,7 +6,9 @@
 //using System.Security.Claims;
 //using System.Text;
 //using Unity.Burst.CompilerServices;
+using Cinemachine;
 using System.Data;
+using TMPro;
 using Unity.Netcode;
 using UnityEditor;
 
@@ -24,12 +26,14 @@ public class PlayerController : NetworkBehaviour
     [SerializeField] private float _rotateSpeed = 2;
     [SerializeField] private float _jumpSpeed = 10;
 
+    private CinemachineFreeLook _mainCamera;
+
     private Rigidbody _rigidbody;
     private CapsuleCollider _capsuleCollider;
-    private Animator _animator;
 
     // 플레이어 조작에 쓰이는 보조 변수
     private float _pitchAngle;
+    private float _yawAngle;
     private bool _isGrounded = true;
 
     // 테스트용 화면 고정 변수
@@ -50,15 +54,6 @@ public class PlayerController : NetworkBehaviour
     private NetworkVariable<ColorType> _playerColor = new NetworkVariable<ColorType>();
 
     /// <summary>
-    /// 플레이어가 조작하는 카메라
-    /// </summary>
-    public GameObject MainCamera
-    {
-        get => _mainCamera;
-    }
-    private GameObject _mainCamera;
-
-    /// <summary>
     /// 현재 상호작용 중인 물체
     /// </summary>
     public IInteractable InteractableInHand
@@ -68,11 +63,18 @@ public class PlayerController : NetworkBehaviour
     }
     private IInteractable _interactableInHand;
 
+    /// <summary>
+    /// 플레이어의 현재 속도
+    /// </summary>
+    public Vector3 Velocity
+    {
+        get => _rigidbody.velocity;
+    }
+
     public override void OnNetworkSpawn()
     {
         _rigidbody = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
-        _animator = GetComponentInChildren<Animator>();
 
         // 플레이어의 색깔이 변하면 함수 호출하도록 지정
         _playerColor.OnValueChanged += (ColorType before, ColorType after) =>
@@ -95,12 +97,9 @@ public class PlayerController : NetworkBehaviour
             MultiplayerManager.LocalPlayerSet.Invoke();
 
             // 메인 카메라 생성
-            _mainCamera = new GameObject("Main Camera");
-            _mainCamera.transform.parent = transform;
-            _mainCamera.transform.position = new Vector3(0f, 0.6f, 0.3f);
-            _mainCamera.AddComponent<Camera>();
-            _mainCamera.AddComponent<AudioListener>();
-            _mainCamera.tag = "MainCamera";
+            _mainCamera = GameObject.FindAnyObjectByType<CinemachineFreeLook>();
+            _mainCamera.Follow = transform;
+            _mainCamera.LookAt = transform;
 
             Cursor.lockState = CursorLockMode.Locked;
         }
@@ -136,9 +135,25 @@ public class PlayerController : NetworkBehaviour
 
         _pitchAngle = Mathf.Clamp(_pitchAngle + mouseY * _rotateSpeed, -90, 90);
 
+        _yawAngle += mouseX * _rotateSpeed;
+
+        if (_yawAngle < 0f)
+        {
+            _yawAngle = 360f;
+        }
+        else if (_yawAngle > 360f)
+        {
+            _yawAngle = 0f;
+        }
+
         // 이동
-        Vector3 moveDirection = (v * transform.forward + h * transform.right).normalized * _walkSpeed;
+        Vector3 moveDirection = _mainCamera.State.FinalOrientation * new Vector3(h, 0, v).normalized * _walkSpeed;
         _rigidbody.velocity = new Vector3(moveDirection.x, _rigidbody.velocity.y, moveDirection.z);
+
+        if (_rigidbody.velocity.magnitude > 0f && _yawAngle != transform.rotation.eulerAngles.y)
+        {
+            transform.transform.rotation = Quaternion.Euler(0f, _mainCamera.State.FinalOrientation.eulerAngles.y, 0f);
+        }
 
         // 접지 여부 확인
         RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _capsuleCollider.height / 2 + 0.2f);
@@ -164,15 +179,13 @@ public class PlayerController : NetworkBehaviour
         // 화면 회전
         if (!_isFixed)  // 테스트용 화면 고정
         {
-            transform.Rotate(new Vector3(0, mouseX * _rotateSpeed, 0));
-            Vector3 cameraRotation = _mainCamera.transform.rotation.eulerAngles;
-            _mainCamera.transform.rotation = Quaternion.Euler(_pitchAngle, cameraRotation.y, cameraRotation.z);
+            // _cameraController.TargetPosition = Quaternion.Euler(_pitchAngle, _yawAngle, 0) * (transform.position + transform.up - _cameraController.transform.forward * 2f);
         }
 
         // 플레이어가 보고 있는 물체 확인
         if (_interactableInHand == null)
         {
-            Physics.Raycast(MainCamera.transform.position, MainCamera.transform.forward, out RaycastHit hit, 5f);
+            Physics.Raycast(_mainCamera.transform.position, _mainCamera.transform.forward, out RaycastHit hit, 5f);
 
             if (hit.collider == null)
             {
@@ -257,8 +270,6 @@ public class PlayerController : NetworkBehaviour
         {
             _isFixed = !_isFixed;
         }
-
-        _animator.SetFloat("speed", _rigidbody.velocity.magnitude);
     }
 
     /// <summary>

@@ -26,8 +26,6 @@ public class PlayerController : NetworkBehaviour
     [SerializeField] private float _rotateSpeed = 2;
     [SerializeField] private float _jumpSpeed = 10;
 
-    private CinemachineFreeLook _mainCamera;
-
     private Rigidbody _rigidbody;
     private CapsuleCollider _capsuleCollider;
 
@@ -52,6 +50,15 @@ public class PlayerController : NetworkBehaviour
         set => _playerColor.Value = value.Value;
     }
     private NetworkVariable<ColorType> _playerColor = new NetworkVariable<ColorType>();
+
+    /// <summary>
+    /// 플레이어의 메인 카메라
+    /// </summary>
+    public CinemachineFreeLook MainCamera
+    {
+        get => _mainCamera;
+    }
+    private CinemachineFreeLook _mainCamera;
 
     /// <summary>
     /// 현재 상호작용 중인 물체
@@ -147,7 +154,7 @@ public class PlayerController : NetworkBehaviour
         }
 
         // 이동
-        Vector3 moveDirection = _mainCamera.State.FinalOrientation * new Vector3(h, 0, v).normalized * _walkSpeed;
+        Vector3 moveDirection = Quaternion.Euler(0, _mainCamera.State.FinalOrientation.eulerAngles.y, 0) * new Vector3(h, 0, v).normalized * _walkSpeed;
         _rigidbody.velocity = new Vector3(moveDirection.x, _rigidbody.velocity.y, moveDirection.z);
 
         if (_rigidbody.velocity.magnitude > 0f && _yawAngle != transform.rotation.eulerAngles.y)
@@ -176,16 +183,16 @@ public class PlayerController : NetworkBehaviour
             _rigidbody.velocity = newVelocity;
         }
 
-        // 화면 회전
-        if (!_isFixed)  // 테스트용 화면 고정
-        {
-            // _cameraController.TargetPosition = Quaternion.Euler(_pitchAngle, _yawAngle, 0) * (transform.position + transform.up - _cameraController.transform.forward * 2f);
-        }
-
         // 플레이어가 보고 있는 물체 확인
         if (_interactableInHand == null)
         {
-            Physics.Raycast(_mainCamera.transform.position, _mainCamera.transform.forward, out RaycastHit hit, 5f);
+            // 레이캐스트 동안에는 플레이어 무시
+            int currentLayer = gameObject.layer;
+            gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+            Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out RaycastHit hit);
+            gameObject.layer = currentLayer;
+
+            Debug.Log(hit.collider?.gameObject.name);
 
             if (hit.collider == null)
             {
@@ -205,7 +212,8 @@ public class PlayerController : NetworkBehaviour
                         _objectOnPointer = null;
                     }
 
-                    if (hit.collider.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable) && interactable.IsInteractable(this))
+                    if (hit.collider.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable) && interactable.IsInteractable(this) &&
+                        (hit.collider.gameObject.transform.position - transform.position).magnitude < 5f)
                     {
                         _objectOnPointer = hit.collider.gameObject;
                         _interactableOnPointer = interactable;

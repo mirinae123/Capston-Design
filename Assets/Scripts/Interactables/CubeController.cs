@@ -146,8 +146,8 @@ public class CubeController : NetworkBehaviour, IInteractable
             // 상자를 들고 있는 플레이어(Owner)가 상자 이동을 담당한다
             if (_holdingPlayer != null)
             {
-                //Vector3 target = _holdingPlayer.MainCamera.transform.position + _holdingPlayer.MainCamera.transform.forward * 3f;
-                //_rigidbody.velocity = (target - transform.position) * 16f;
+                Vector3 target = _holdingPlayer.transform.position + _holdingPlayer.transform.forward * 1.5f;
+                _rigidbody.velocity = (target - transform.position) * 16f;
             }
         }
 

@@ -30,8 +30,6 @@ public class PlayerController : NetworkBehaviour
     private CapsuleCollider _capsuleCollider;
 
     // 플레이어 조작에 쓰이는 보조 변수
-    private float _pitchAngle;
-    private float _yawAngle;
     private bool _isGrounded = true;
 
     // 테스트용 화면 고정 변수
@@ -140,27 +138,12 @@ public class PlayerController : NetworkBehaviour
         float mouseX = Input.GetAxis("Mouse X");
         float mouseY = -Input.GetAxis("Mouse Y");
 
-        _pitchAngle = Mathf.Clamp(_pitchAngle + mouseY * _rotateSpeed, -90, 90);
-
-        _yawAngle += mouseX * _rotateSpeed;
-
-        if (_yawAngle < 0f)
-        {
-            _yawAngle = 360f;
-        }
-        else if (_yawAngle > 360f)
-        {
-            _yawAngle = 0f;
-        }
-
         // 이동
         Vector3 moveDirection = Quaternion.Euler(0, _mainCamera.State.FinalOrientation.eulerAngles.y, 0) * new Vector3(h, 0, v).normalized * _walkSpeed;
         _rigidbody.velocity = new Vector3(moveDirection.x, _rigidbody.velocity.y, moveDirection.z);
 
-        if (_rigidbody.velocity.magnitude > 0f && _yawAngle != transform.rotation.eulerAngles.y)
-        {
-            transform.transform.rotation = Quaternion.Euler(0f, _mainCamera.State.FinalOrientation.eulerAngles.y, 0f);
-        }
+        // 플레이어 회전
+        transform.Rotate(0, _mainCamera.State.FinalOrientation.eulerAngles.y - transform.rotation.eulerAngles.y, 0f);
 
         // 접지 여부 확인
         RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _capsuleCollider.height / 2 + 0.2f);

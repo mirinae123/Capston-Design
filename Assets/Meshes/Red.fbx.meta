@@ -1,24 +1,9 @@
 fileFormatVersion: 2
-guid: e3783ae1af80c8f40a05663e5c74ec56
+guid: fc1817924872ec6429d128cfb6203649
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects:
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: body
-    second: {fileID: 2100000, guid: 0655977f610d1ec4aa72f790bf6227cb, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: eye
-    second: {fileID: 2100000, guid: b9bad72bb9653fa49baab394f8143ab8, type: 2}
-  - first:
-      type: UnityEngine:Texture2D
-      assembly: UnityEngine.CoreModule
-      name: red_eye
-    second: {fileID: 2800000, guid: 7e9a2fd1e41831d498d7616af74fe687, type: 3}
+  externalObjects: {}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -50,7 +35,7 @@ ModelImporter:
     isReadable: 0
   meshes:
     lODScreenPercentages: []
-    globalScale: 1
+    globalScale: 0.077
     meshCompression: 0
     addColliders: 0
     useSRGBMaterialColor: 1
@@ -105,7 +90,7 @@ ModelImporter:
     armStretch: 0.05
     legStretch: 0.05
     feetSpacing: 0
-    globalScale: 1
+    globalScale: 0.00077
     rootMotionBoneName: 
     hasTranslationDoF: 0
     hasExtraRoot: 0

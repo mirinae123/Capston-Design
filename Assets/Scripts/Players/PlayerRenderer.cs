@@ -20,6 +20,7 @@ public class PlayerRenderer : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         _playerController = GetComponent<PlayerController>();
+        _animator = GetComponent<Animator>();
 
         // 플레이어의 색깔이 변하면 함수 호출하도록 지정
         _playerController.PlayerColor.OnValueChanged += (ColorType before, ColorType after) =>
@@ -42,6 +43,26 @@ public class PlayerRenderer : NetworkBehaviour
         }
     }
 
+    public void ShowPlayerMesh()
+    {
+        if (_playerMeshObject.activeSelf)
+        {
+            return;
+        }
+
+        _playerMeshObject?.SetActive(true);
+    }
+
+    public void HidePlayerMesh()
+    {
+        if (!_playerMeshObject.activeSelf)
+        {
+            return;
+        }
+
+        _playerMeshObject?.SetActive(false);
+    }
+
     private void Update()
     {
         if (_animator == null)
@@ -62,14 +83,14 @@ public class PlayerRenderer : NetworkBehaviour
         if (after == ColorType.Red)
         {
             _playerMeshObject = Instantiate(_redPlayerPrefab, transform);
-            _playerMeshObject.transform.localPosition = new Vector3(-1.2f, -1f, 0f);
+            _playerMeshObject.transform.localPosition = new Vector3(0f, -1f, 0f);
             _animator = _playerMeshObject.AddComponent<Animator>();
             _animator.runtimeAnimatorController = _redAnimatorController;
         }
         if (after == ColorType.Blue)
         {
             _playerMeshObject = Instantiate(_bluePlayerPrefab, transform);
-            _playerMeshObject.transform.localPosition = new Vector3(-1.2f, -1f, 0f);
+            _playerMeshObject.transform.localPosition = new Vector3(0f, -1f, 0f);
             _animator = _playerMeshObject.AddComponent<Animator>();
             _animator.runtimeAnimatorController = _blueAnimatorController;
         }

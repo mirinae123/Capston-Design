@@ -1,4 +1,4 @@
-//using System;
+        //using System;
 //using System.Collections;
 //using System.Collections.Generic;
 //using System.Linq;
@@ -191,7 +191,7 @@ public class PlayerController : NetworkBehaviour
                 {
                     if (_objectOnPointer != null)
                     {
-                        _objectOnPointer.GetComponent<Outline>().enabled = false;
+                        _objectOnPointer.GetComponent<Outline>().enabled = false;   
                         _objectOnPointer = null;
                     }
 

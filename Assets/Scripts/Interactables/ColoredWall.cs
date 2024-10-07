@@ -68,11 +68,11 @@ public class ColoredWall : NetworkBehaviour
         // 파란색 벽은 파란색 물체와 물리 상호작용하지 않는다.
         // 따라서 벽의 레이어는 "Red"로, 제외 레이어는 "Blue"로 둔다.
         // 빨간색 벽도 이러한 방식으로 설정한다.
-        int newLayer = (after == ColorType.Blue) ? LayerMask.NameToLayer("Red") : LayerMask.NameToLayer("Blue");
+        // int newLayer = (after == ColorType.Blue) ? LayerMask.NameToLayer("Red") : LayerMask.NameToLayer("Blue");
         int excludedLayer = (after == ColorType.Blue) ? LayerMask.GetMask("Blue") : LayerMask.GetMask("Red");
 
         _meshRenderer.material.color = newColor;
-        gameObject.layer = newLayer;
+        // gameObject.layer = newLayer;
 
         // 다른 색깔 물체와는 물리 상호작용하지 않도록 지정
         _boxCollider.excludeLayers = excludedLayer;

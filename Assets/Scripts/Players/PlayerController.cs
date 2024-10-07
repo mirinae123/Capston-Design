@@ -69,6 +69,16 @@ public class PlayerController : NetworkBehaviour
     private IInteractable _interactableInHand;
 
     /// <summary>
+    /// 플레이어의 키.
+    /// </summary>
+    public float Height
+    {
+        get => _height;
+        set => _height = value;
+    }
+    private float _height;
+
+    /// <summary>
     /// 플레이어의 현재 속도
     /// </summary>
     public Vector3 Velocity
@@ -80,6 +90,8 @@ public class PlayerController : NetworkBehaviour
     {
         _rigidbody = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
+
+        _height = _capsuleCollider.height;
 
         // 플레이어의 색깔이 변하면 함수 호출하도록 지정
         _playerColor.OnValueChanged += (ColorType before, ColorType after) =>
@@ -146,7 +158,7 @@ public class PlayerController : NetworkBehaviour
         transform.Rotate(0, _mainCamera.State.FinalOrientation.eulerAngles.y - transform.rotation.eulerAngles.y, 0f);
 
         // 접지 여부 확인
-        RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _capsuleCollider.height / 2 + 0.2f);
+        RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _height / 2 + 0.2f);
 
         if (hits.Length > 0)
         {
@@ -281,12 +293,12 @@ public class PlayerController : NetworkBehaviour
     private void OnPlayerColorChanged(ColorType before, ColorType after)
     {
         int newLayer = (after == ColorType.Red) ? LayerMask.NameToLayer("Red") : LayerMask.NameToLayer("Blue");
-        int excludedLayer = (after == ColorType.Red) ? LayerMask.GetMask("Blue") : LayerMask.GetMask("Red");
+        // int excludedLayer = (after == ColorType.Red) ? LayerMask.GetMask("Blue") : LayerMask.GetMask("Red");
 
         gameObject.layer = newLayer;
 
         // 다른 색깔 물체와는 물리 상호작용하지 않도록 지정
-        _capsuleCollider.excludeLayers = excludedLayer;
+        // _capsuleCollider.excludeLayers = excludedLayer;
 
         // 로컬 플레이어인 경우 화면 표시 갱신
         if (IsOwner)

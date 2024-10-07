@@ -174,12 +174,12 @@ public class CubeController : NetworkBehaviour, IInteractable
     private void OnCubeColorChanged(ColorType before, ColorType after)
     {
         int newLayer = (after == ColorType.Red) ? LayerMask.NameToLayer("Red") : LayerMask.NameToLayer("Blue");
-        int excludedLayer = (after == ColorType.Red) ? LayerMask.GetMask("Blue") : LayerMask.GetMask("Red");
+        // int excludedLayer = (after == ColorType.Red) ? LayerMask.GetMask("Blue") : LayerMask.GetMask("Red");
 
         gameObject.layer = newLayer;
 
         // 다른 색깔 물체와는 물리 상호작용하지 않도록 지정
-        _boxCollider.excludeLayers = excludedLayer;
+        // _boxCollider.excludeLayers = excludedLayer;
 
         // 누군가 들고 있는 상태에서 색깔이 변한 경우, 강제로 놓는다
         if (IsServer && _holdingPlayer != null)

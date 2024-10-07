@@ -99,12 +99,12 @@ public class PossessableController : NetworkBehaviour, IInteractable
     private void OnPossessableColorChanged(ColorType before, ColorType after)
     {
         int newLayer = (after == ColorType.Red) ? LayerMask.NameToLayer("Red") : LayerMask.NameToLayer("Blue");
-        int excludedLayer = (after == ColorType.Red) ? LayerMask.GetMask("Blue") : LayerMask.GetMask("Red");
+        // int excludedLayer = (after == ColorType.Red) ? LayerMask.GetMask("Blue") : LayerMask.GetMask("Red");
 
         gameObject.layer = newLayer;
 
         // 다른 색깔 물체와는 물리 상호작용하지 않도록 지정
-        _capsuleCollider.excludeLayers = excludedLayer;
+        // _capsuleCollider.excludeLayers = excludedLayer;
     }
 
     /// <summary>
@@ -142,6 +142,7 @@ public class PossessableController : NetworkBehaviour, IInteractable
             transform.localPosition = Vector3.zero;
 
             _possessingPlayer.InteractableInHand = this;
+            _possessingPlayer.Height = _capsuleCollider.height;
 
             // 플레이어의 CapusleCollider를 비활성화하고, 메쉬를 숨긴다.
             _possessingPlayer.gameObject.GetComponent<CapsuleCollider>().enabled = false;
@@ -173,9 +174,11 @@ public class PossessableController : NetworkBehaviour, IInteractable
     private void RemoveHoldingPlayerClientRpc()
     {
         // 플레이어의 CapusleCollider를 활성화하고, 메쉬를 표시한다.
-        _possessingPlayer.InteractableInHand = null;
         _possessingPlayer.gameObject.GetComponent<CapsuleCollider>().enabled = true;
         _possessingPlayer.gameObject.GetComponent<PlayerRenderer>().ShowPlayerMesh();
+
+        _possessingPlayer.InteractableInHand = null;
+        _possessingPlayer.Height = _possessingPlayer.GetComponent<CapsuleCollider>().height;
 
         _possessingPlayer = null;
 

@@ -27,12 +27,7 @@ public class SwitchController : NetworkBehaviour, IInteractable
     /// <summary>
     /// 스위치가 활성화할 게임 오브젝트
     /// </summary>
-    [SerializeField] private GameObject _connectedGameObject;
-
-    /// <summary>
-    /// 스위치가 활성화할 게임 오브젝트의 IActivatable 클래스
-    /// </summary>
-    private IActivatable _connectedActivatable;
+    [SerializeField] private GameObject[] _connectedActivatables;
 
     public bool IsInteractable(PlayerController player)
     {
@@ -54,7 +49,10 @@ public class SwitchController : NetworkBehaviour, IInteractable
             // 스위치 주변에 있는 플레이어 수를 확인
             if (GetNumberOfPlayersNearby() >= 2)
             {
-                _connectedActivatable.Activate(player);
+                foreach (GameObject activatable in _connectedActivatables)
+                {
+                    activatable.GetComponent<IActivatable>().Activate(player);
+                }
                 return true;
             }
             else
@@ -68,13 +66,19 @@ public class SwitchController : NetworkBehaviour, IInteractable
             // 스위치 색깔이 None이면 아무나 누를 수 있다
             if (_switchColor == ColorType.None)
             {
-                _connectedActivatable.Activate(player);
+                foreach (GameObject activatable in _connectedActivatables)
+                {
+                    activatable.GetComponent<IActivatable>().Activate(player);
+                }
                 return true;
             }
             // 그렇지 않으면 플레이어 색깔을 확인한다
             else if (_switchColor == player.PlayerColor.Value)
             {
-                _connectedActivatable.Activate(player);
+                foreach (GameObject activatable in _connectedActivatables)
+                {
+                    activatable.GetComponent<IActivatable>().Activate(player);
+                }
                 return true;
             }
             else
@@ -91,8 +95,6 @@ public class SwitchController : NetworkBehaviour, IInteractable
 
     public override void OnNetworkSpawn()
     {
-        _connectedActivatable = _connectedGameObject.GetComponent<IActivatable>();
-
         MeshRenderer meshRenderer = GetComponent<MeshRenderer>();
 
         if (_switchColor == ColorType.None)

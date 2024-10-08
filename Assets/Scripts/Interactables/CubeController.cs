@@ -14,6 +14,10 @@ public class CubeController : NetworkBehaviour, IInteractable
     /// <summary>
     /// Inspector 상에서 초기 색깔을 설정하는 데 쓰이는 변수.
     /// </summary>
+    public ColorType InitColor
+    {
+        get => _initColor;
+    }
     [SerializeField] private ColorType _initColor;
 
     /// <summary>

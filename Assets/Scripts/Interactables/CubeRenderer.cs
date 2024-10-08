@@ -42,7 +42,7 @@ public class CubeRenderer : NetworkBehaviour
 
     private void Update()
     {
-        if (_cubeController.ColorChangeTimeLeft > 0f && _cubeController.ColorChangeDuration != _cubeController.ColorChangeTimeLeft)             
+        if (_cubeController.ColorChangeTimeLeft > 0f && _cubeController.ColorChangeDuration != _cubeController.ColorChangeTimeLeft && _cubeController.CubeColor.Value != _cubeController.InitColor)             
         {
             if (!_timeLeftCanvas.activeSelf)
             {

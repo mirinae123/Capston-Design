@@ -1,6 +1,7 @@
 using Unity.Multiplayer.Samples.Utilities.ClientAuthority;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.XR;
 
 /// <summary>
 /// 빙의 가능한 물체를 조작하는 클래스.
@@ -149,8 +150,7 @@ public class PossessableController : NetworkBehaviour, IInteractable
             {
                 _possessingPlayer.Height = (_collider as BoxCollider).size.y * transform.localScale.y;
             }
-
-            if (_collider is CapsuleCollider)
+            else if (_collider is CapsuleCollider)
             {
                 _possessingPlayer.Height = (_collider as CapsuleCollider).height * transform.localScale.y;
             }
@@ -199,6 +199,7 @@ public class PossessableController : NetworkBehaviour, IInteractable
         // 별도의 Rigidbody를 사용하게 한다.
         _rigidbody = gameObject.AddComponent<Rigidbody>();
         _rigidbody.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        _rigidbody.mass = 10f;
         _rigidbody.angularDrag = 5f;
     }
 }

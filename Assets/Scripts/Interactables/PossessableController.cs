@@ -33,14 +33,15 @@ public class PossessableController : NetworkBehaviour, IInteractable
     private PlayerController _possessingPlayer;
 
     private Rigidbody _rigidbody;
-    private CapsuleCollider _capsuleCollider;
+
+    private Collider _collider;
 
     public override void OnNetworkSpawn()
     {
         _possessableColor.Value = _initColor;
 
         _rigidbody = GetComponent<Rigidbody>();
-        _capsuleCollider = GetComponent<CapsuleCollider>();
+        _collider = GetComponent<Collider>();
 
         // 물체의 색깔이 변하면 함수 호출하도록 지정
         _possessableColor.OnValueChanged += (ColorType before, ColorType after) => {
@@ -142,10 +143,20 @@ public class PossessableController : NetworkBehaviour, IInteractable
             transform.localPosition = Vector3.zero;
 
             _possessingPlayer.InteractableInHand = this;
-            _possessingPlayer.Height = _capsuleCollider.height;
+
+            // 콜라이더의 종류에 따라 높이 계산
+            if (_collider is BoxCollider)
+            {
+                _possessingPlayer.Height = (_collider as BoxCollider).size.y * transform.localScale.y;
+            }
+
+            if (_collider is CapsuleCollider)
+            {
+                _possessingPlayer.Height = (_collider as CapsuleCollider).height * transform.localScale.y;
+            }
 
             // 플레이어의 CapusleCollider를 비활성화하고, 메쉬를 숨긴다.
-            _possessingPlayer.gameObject.GetComponent<CapsuleCollider>().enabled = false;
+            _possessingPlayer.gameObject.GetComponent<Collider>().enabled = false;
             _possessingPlayer.gameObject.GetComponent<PlayerRenderer>().HidePlayerMesh();
 
             // 물체는 별도로 Network Transform을 사용하지 않게 한다.
@@ -174,11 +185,11 @@ public class PossessableController : NetworkBehaviour, IInteractable
     private void RemoveHoldingPlayerClientRpc()
     {
         // 플레이어의 CapusleCollider를 활성화하고, 메쉬를 표시한다.
-        _possessingPlayer.gameObject.GetComponent<CapsuleCollider>().enabled = true;
+        _possessingPlayer.gameObject.GetComponent<Collider>().enabled = true;
         _possessingPlayer.gameObject.GetComponent<PlayerRenderer>().ShowPlayerMesh();
 
         _possessingPlayer.InteractableInHand = null;
-        _possessingPlayer.Height = _possessingPlayer.GetComponent<CapsuleCollider>().height;
+        _possessingPlayer.Height = _possessingPlayer.GetComponent<CapsuleCollider>().height * _possessingPlayer.gameObject.transform.localScale.y;
 
         _possessingPlayer = null;
 

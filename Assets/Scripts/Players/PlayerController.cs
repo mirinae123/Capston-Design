@@ -1,18 +1,8 @@
-        //using System;
-//using System.Collections;
-//using System.Collections.Generic;
-//using System.Linq;
-//using System.Runtime.CompilerServices;
-//using System.Security.Claims;
-//using System.Text;
-//using Unity.Burst.CompilerServices;
 using Cinemachine;
 using System.Data;
 using TMPro;
 using Unity.Netcode;
 using UnityEditor;
-
-//using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -91,7 +81,7 @@ public class PlayerController : NetworkBehaviour
         _rigidbody = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
 
-        _height = _capsuleCollider.height;
+        _height = _capsuleCollider.height * transform.localScale.y;
 
         // 플레이어의 색깔이 변하면 함수 호출하도록 지정
         _playerColor.OnValueChanged += (ColorType before, ColorType after) =>
@@ -158,7 +148,8 @@ public class PlayerController : NetworkBehaviour
         transform.Rotate(0, _mainCamera.State.FinalOrientation.eulerAngles.y - transform.rotation.eulerAngles.y, 0f);
 
         // 접지 여부 확인
-        RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _height / 2 + 0.2f);
+        RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _height / 2f + 0.2f);
+        Debug.Log(_height);
 
         if (hits.Length > 0)
         {

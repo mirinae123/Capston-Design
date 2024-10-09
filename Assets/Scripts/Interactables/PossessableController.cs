@@ -199,7 +199,7 @@ public class PossessableController : NetworkBehaviour, IInteractable
         // 별도의 Rigidbody를 사용하게 한다.
         _rigidbody = gameObject.AddComponent<Rigidbody>();
         _rigidbody.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-        _rigidbody.mass = 10f;
+        _rigidbody.mass = 1f;
         _rigidbody.angularDrag = 5f;
     }
 }

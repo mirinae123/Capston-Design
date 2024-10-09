@@ -6,7 +6,7 @@ using UnityEngine;
 /// <summary>
 /// 벽을 나타내는 클래스.
 /// </summary>
-public class ColoredWall : NetworkBehaviour
+public class ColoredWall : NetworkBehaviour, IActivatable
 {
     /// <summary>
     /// Inspector 상에서 초기 색깔을 설정하는 데 쓰이는 변수.
@@ -56,6 +56,18 @@ public class ColoredWall : NetworkBehaviour
         }
     }
 
+    public bool Activate(PlayerController player)
+    {
+        UpdateWallServerRpc(false);
+
+        return true;
+    }
+
+    public bool Deactivate(PlayerController player)
+    {
+        return false;
+    }
+
     /// <summary>
     /// 벽의 색깔을 갱신한다.
     /// </summary>
@@ -76,5 +88,18 @@ public class ColoredWall : NetworkBehaviour
 
         // 다른 색깔 물체와는 물리 상호작용하지 않도록 지정
         _boxCollider.excludeLayers = excludedLayer;
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void UpdateWallServerRpc(bool active)
+    {
+        UpdateWallClientRpc(active);
+    }
+
+    [ClientRpc]
+    private void UpdateWallClientRpc(bool active)
+    {
+        _boxCollider.enabled = active;
+        _meshRenderer.enabled = active;
     }
 }

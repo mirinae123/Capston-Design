@@ -99,6 +99,23 @@ public class PlayerController : NetworkBehaviour
         // 로컬 플레이어인 경우...
         if (IsOwner)
         {
+            // 초기 스폰 위치 설정
+            GameObject[] spawnPositions;
+
+            if (_playerColor.Value == ColorType.Red)
+            {
+                spawnPositions = GameObject.FindGameObjectsWithTag("RedPlayerSpawn");
+            }
+            else
+            {
+                spawnPositions = GameObject.FindGameObjectsWithTag("BluePlayerSpawn");
+            }
+
+            if (spawnPositions.Length > 0)
+            {
+                transform.position = spawnPositions[0].transform.position;
+            }
+
             // MultiplayerManager의 LocalPlayer 변수 설정
             MultiplayerManager.Instance.LocalPlayer = this;
             MultiplayerManager.LocalPlayerSet.Invoke();
@@ -149,7 +166,6 @@ public class PlayerController : NetworkBehaviour
 
         // 접지 여부 확인
         RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _height / 2f + 0.2f);
-        Debug.Log(_height);
 
         if (hits.Length > 0)
         {
@@ -177,8 +193,6 @@ public class PlayerController : NetworkBehaviour
             gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
             Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out RaycastHit hit);
             gameObject.layer = currentLayer;
-
-            Debug.Log(hit.collider?.gameObject.name);
 
             if (hit.collider == null)
             {

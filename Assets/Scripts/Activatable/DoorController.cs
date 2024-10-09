@@ -27,6 +27,14 @@ public class DoorController : NetworkBehaviour, IActivatable
     /// </summary>
     private float _timeTillClose;
 
+    public override void OnNetworkSpawn()
+    {
+        if (_isOpen)
+        {
+            _animator.Play("Open");
+        }
+    }
+
     public void Update()
     {
         if (!IsServer)
@@ -56,6 +64,11 @@ public class DoorController : NetworkBehaviour, IActivatable
     {
         CloseDoorServerRpc();
         return true;
+    }
+
+    public void SetDuration(float duration)
+    {
+        _openDuration = duration;
     }
 
     /// <summary>

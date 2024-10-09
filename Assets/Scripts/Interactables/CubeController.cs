@@ -20,6 +20,8 @@ public class CubeController : NetworkBehaviour, IInteractable
     }
     [SerializeField] private ColorType _initColor;
 
+    [SerializeField] private PhysicMaterial _inHandPhysicMaterial;
+
     /// <summary>
     /// 상자의 현재 색깔.
     /// </summary>
@@ -221,6 +223,8 @@ public class CubeController : NetworkBehaviour, IInteractable
         {
             _holdingPlayer = playerNetworkObject.gameObject.GetComponent<PlayerController>();
             _holdingPlayer.InteractableInHand = this;
+
+            _boxCollider.material = _inHandPhysicMaterial;
         }
     }
 
@@ -244,5 +248,7 @@ public class CubeController : NetworkBehaviour, IInteractable
     {
         _holdingPlayer.InteractableInHand = null;
         _holdingPlayer = null;
+
+        _boxCollider.material = null;
     }
 }

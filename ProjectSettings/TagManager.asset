@@ -6,6 +6,8 @@ TagManager:
   tags:
   - Ground
   - Colored Wall
+  - RedPlayerSpawn
+  - BluePlayerSpawn
   layers:
   - Default
   - TransparentFX

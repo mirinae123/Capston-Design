@@ -21,11 +21,11 @@ public class MultiplayerManager : NetworkBehaviour
     /// LocalPlayer가 지정되어 더 이상 NULL이 아닌 경우 Invoke한다.
     /// OnNetworkSpawn(), Start() 등에서 LocalPlayer를 참조하는 경우 NULL 값을 참조하지 않기 위함이다.
     /// </summary>
-    private static UnityEvent _localPlayerSet = new UnityEvent();
     public static UnityEvent LocalPlayerSet
     {
         get => _localPlayerSet;
     }
+    private static UnityEvent _localPlayerSet = new UnityEvent();
 
     private PlayerController _localPlayer;
     public PlayerController LocalPlayer

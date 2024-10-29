@@ -16,6 +16,8 @@ public class PlayerController : NetworkBehaviour
     [SerializeField] private float _rotateSpeed = 2;
     [SerializeField] private float _jumpSpeed = 10;
 
+    [SerializeField] private GameObject _bulletPrefab;
+
     private Rigidbody _rigidbody;
     private CapsuleCollider _capsuleCollider;
 
@@ -278,6 +280,16 @@ public class PlayerController : NetworkBehaviour
         {
             _isFixed = !_isFixed;
         }
+
+        if (Input.GetKeyDown(KeyCode.F))
+        {
+            gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+
+            Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out RaycastHit hit);
+            SpawnBulletServerRpc(_playerColor.Value, transform.position, (hit.point - transform.position).normalized);
+
+            gameObject.layer = LayerMask.NameToLayer(_playerColor.Value.ToString());      
+        }
     }
 
     /// <summary>
@@ -288,6 +300,16 @@ public class PlayerController : NetworkBehaviour
     public void ChangePlayerColorServerRpc(ColorType newColor)
     {
         _playerColor.Value = newColor;
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void SpawnBulletServerRpc(ColorType bulletColor, Vector3 position, Vector3 direction)
+    {
+        GameObject bullet = Instantiate(_bulletPrefab);
+        
+        bullet.transform.position = position + direction;
+        bullet.GetComponent<NetworkObject>().Spawn();
+        bullet.GetComponent<BulletController>().Initialize(bulletColor, direction);
     }
 
     /// <summary>

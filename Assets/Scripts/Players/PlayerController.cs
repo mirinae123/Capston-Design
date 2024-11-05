@@ -101,33 +101,7 @@ public class PlayerController : NetworkBehaviour
         // 로컬 플레이어인 경우...
         if (IsOwner)
         {
-            // 초기 스폰 위치 설정
-            GameObject[] spawnPositions;
-
-            if (_playerColor.Value == ColorType.Red)
-            {
-                spawnPositions = GameObject.FindGameObjectsWithTag("RedPlayerSpawn");
-            }
-            else
-            {
-                spawnPositions = GameObject.FindGameObjectsWithTag("BluePlayerSpawn");
-            }
-
-            if (spawnPositions.Length > 0)
-            {
-                transform.position = spawnPositions[0].transform.position;
-            }
-
-            // MultiplayerManager의 LocalPlayer 변수 설정
-            MultiplayerManager.Instance.LocalPlayer = this;
-            MultiplayerManager.LocalPlayerSet.Invoke();
-
-            // 메인 카메라 생성
-            _mainCamera = GameObject.FindAnyObjectByType<CinemachineFreeLook>();
-            _mainCamera.Follow = transform;
-            _mainCamera.LookAt = transform;
-
-            Cursor.lockState = CursorLockMode.Locked;
+            InitLocalPlayer();
         }
 
         // 플레이어 최초 생성 후 초기화 작업을 수행
@@ -153,101 +127,20 @@ public class PlayerController : NetworkBehaviour
             return;
         }
 
-        float h = Input.GetAxis("Horizontal");
-        float v = Input.GetAxis("Vertical");
-
-        float mouseX = Input.GetAxis("Mouse X");
-        float mouseY = -Input.GetAxis("Mouse Y");
-
         // 이동
-        Vector3 moveDirection = Quaternion.Euler(0, _mainCamera.State.FinalOrientation.eulerAngles.y, 0) * new Vector3(h, 0, v).normalized * _walkSpeed;
-        _rigidbody.velocity = new Vector3(moveDirection.x, _rigidbody.velocity.y, moveDirection.z);
+        Move();
 
         // 플레이어 회전
-        transform.Rotate(0, _mainCamera.State.FinalOrientation.eulerAngles.y - transform.rotation.eulerAngles.y, 0f);
-
-        // 접지 여부 확인
-        RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _height / 2f + 0.2f);
-
-        if (hits.Length > 0)
-        {
-            _isGrounded = true;
-        }
-        else
-        {
-            _isGrounded = false;
-        }
+        Rotate();
 
         // 점프
-        if (Input.GetKeyDown(KeyCode.Space) && _isGrounded)
-        {
-            Vector3 newVelocity = _rigidbody.velocity;
-            newVelocity.y = _jumpSpeed;
-
-            _rigidbody.velocity = newVelocity;
-        }
+        Jump();
 
         // 플레이어가 보고 있는 물체 확인
-        if (_interactableInHand == null)
-        {
-            // 레이캐스트 동안에는 플레이어 무시
-            int currentLayer = gameObject.layer;
-            gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
-            Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out RaycastHit hit);
-            gameObject.layer = currentLayer;
+        CheckInteractable();
 
-            if (hit.collider == null)
-            {
-                if (_objectOnPointer != null)
-                {
-                    _objectOnPointer.GetComponent<Outline>().enabled = false;
-                    _objectOnPointer = null;
-                }
-            }
-            else
-            {
-                if (_objectOnPointer != hit.collider.gameObject)
-                {
-                    if (_objectOnPointer != null)
-                    {
-                        _objectOnPointer.GetComponent<Outline>().enabled = false;   
-                        _objectOnPointer = null;
-                    }
-
-                    if (hit.collider.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable) && interactable.IsInteractable(this) &&
-                        (hit.collider.gameObject.transform.position - transform.position).magnitude < 5f)
-                    {
-                        _objectOnPointer = hit.collider.gameObject;
-                        _interactableOnPointer = interactable;
-                        _objectOnPointer.GetComponent<Outline>().enabled = true;
-                    }
-                }
-                else if (_objectOnPointer != null && !_interactableOnPointer.IsInteractable(this))
-                {
-                    _objectOnPointer.GetComponent<Outline>().enabled = false;
-                    _objectOnPointer = null;
-                }
-            }
-        }
-
-        // 상호작용 키
-        if (Input.GetKeyDown(KeyCode.E))
-        {
-            // 이미 상호작용 중인 물체가 있다면, 상호작용 중단
-            if (_interactableInHand != null)
-            {
-                _interactableInHand.StopInteraction(this);
-            }
-            // 상호작용 중인 물체가 없다면 Raycast로 탐색
-            else if (_objectOnPointer != null)
-            {
-                _objectOnPointer.GetComponent<IInteractable>().StartInteraction(this);
-
-                // 하이라이트 제거
-                _objectOnPointer.GetComponent<Outline>().enabled = false;
-                _objectOnPointer = null;
-            }
-        }
+        // 상호작용
+        Interact();
 
         // 테스트용: Tab 키를 누르면 마우스 커서가 화면을 벗어날 수 있다
         if (Input.GetKeyDown(KeyCode.Tab))
@@ -289,6 +182,161 @@ public class PlayerController : NetworkBehaviour
             SpawnBulletServerRpc(_playerColor.Value, transform.position, (hit.point - transform.position).normalized);
 
             gameObject.layer = LayerMask.NameToLayer(_playerColor.Value.ToString());      
+        }
+    }
+
+    /// <summary>
+    /// 로컬 플레이어를 초기화한다.
+    /// </summary>
+    private void InitLocalPlayer()
+    {
+        // 초기 스폰 위치 설정
+        GameObject[] spawnPositions;
+
+        if (_playerColor.Value == ColorType.Red)
+        {
+            spawnPositions = GameObject.FindGameObjectsWithTag("RedPlayerSpawn");
+        }
+        else
+        {
+            spawnPositions = GameObject.FindGameObjectsWithTag("BluePlayerSpawn");
+        }
+
+        if (spawnPositions.Length > 0)
+        {
+            transform.position = spawnPositions[0].transform.position;
+        }
+
+        // MultiplayerManager의 LocalPlayer 변수 설정
+        MultiplayerManager.Instance.LocalPlayer = this;
+        MultiplayerManager.LocalPlayerSet.Invoke();
+
+        // 메인 카메라 생성
+        _mainCamera = GameObject.FindAnyObjectByType<CinemachineFreeLook>();
+        _mainCamera.Follow = transform;
+        _mainCamera.LookAt = transform;
+
+        Cursor.lockState = CursorLockMode.Locked;
+    }
+
+    /// <summary>
+    /// 플레이어를 이동한다.
+    /// </summary>
+    private void Move()
+    {
+        float h = Input.GetAxis("Horizontal");
+        float v = Input.GetAxis("Vertical");
+
+        Vector3 moveDirection = Quaternion.Euler(0, _mainCamera.State.FinalOrientation.eulerAngles.y, 0) * new Vector3(h, 0, v).normalized * _walkSpeed;
+        _rigidbody.velocity = new Vector3(moveDirection.x, _rigidbody.velocity.y, moveDirection.z);
+    }
+
+    /// <summary>
+    /// 플레이어를 회전한다.
+    /// </summary>
+    private void Rotate()
+    {
+        transform.Rotate(0, _mainCamera.State.FinalOrientation.eulerAngles.y - transform.rotation.eulerAngles.y, 0f);
+    }
+
+    /// <summary>
+    /// 플레이어를 점프시킨다.
+    /// </summary>
+    private void Jump()
+    {
+        if (Input.GetKeyDown(KeyCode.Space) && IsGrounded())
+        {
+            Vector3 newVelocity = _rigidbody.velocity;
+            newVelocity.y = _jumpSpeed;
+
+            _rigidbody.velocity = newVelocity;
+        }
+    }
+
+    /// <summary>
+    /// 접지 여부를 확인한다
+    /// </summary>
+    /// <returns>접지 여부</returns>
+    private bool IsGrounded()
+    {
+        RaycastHit[] hits = Physics.RaycastAll(transform.position, Vector3.down, _height / 2f + 0.2f);
+
+        if (hits.Length > 0)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 상호작용 가능한 물체를 탐색한다.
+    /// </summary>
+    private void CheckInteractable()
+    {
+        if (_interactableInHand == null)
+        {
+            // 레이캐스트 동안에는 플레이어 무시
+            int currentLayer = gameObject.layer;
+            gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+            Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out RaycastHit hit);
+            gameObject.layer = currentLayer;
+
+            if (hit.collider == null)
+            {
+                if (_objectOnPointer != null)
+                {
+                    _objectOnPointer.GetComponent<Outline>().enabled = false;
+                    _objectOnPointer = null;
+                }
+            }
+            else
+            {
+                if (_objectOnPointer != hit.collider.gameObject)
+                {
+                    if (_objectOnPointer != null)
+                    {
+                        _objectOnPointer.GetComponent<Outline>().enabled = false;
+                        _objectOnPointer = null;
+                    }
+
+                    if (hit.collider.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable) && interactable.IsInteractable(this) &&
+                        (hit.collider.gameObject.transform.position - transform.position).magnitude < 5f)
+                    {
+                        _objectOnPointer = hit.collider.gameObject;
+                        _interactableOnPointer = interactable;
+                        _objectOnPointer.GetComponent<Outline>().enabled = true;
+                    }
+                }
+                else if (_objectOnPointer != null && !_interactableOnPointer.IsInteractable(this))
+                {
+                    _objectOnPointer.GetComponent<Outline>().enabled = false;
+                    _objectOnPointer = null;
+                }
+            }
+        }
+    }
+
+    private void Interact()
+    {
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            // 이미 상호작용 중인 물체가 있다면, 상호작용 중단
+            if (_interactableInHand != null)
+            {
+                _interactableInHand.StopInteraction(this);
+            }
+            // 상호작용 중인 물체가 없다면 Raycast로 탐색
+            else if (_objectOnPointer != null)
+            {
+                _objectOnPointer.GetComponent<IInteractable>().StartInteraction(this);
+
+                // 하이라이트 제거
+                _objectOnPointer.GetComponent<Outline>().enabled = false;
+                _objectOnPointer = null;
+            }
         }
     }
 

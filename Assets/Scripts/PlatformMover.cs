@@ -10,22 +10,9 @@ using UnityEngine.UIElements;
 public class PlatformMover : NetworkBehaviour
 {
     float acc_time = 0f;
-
-    float exit_cool = 3f;
-    NetworkObject queue_obj = null;
     
     void Update()
     {
-        if (queue_obj != null)
-        {
-            exit_cool -= Time.deltaTime;
-            if (exit_cool < 0f)
-            {
-                OnCollisionExitServerRpc(queue_obj);
-                queue_obj = null;
-            }
-        }
-
         if (!IsServer)
         {
             return;
@@ -43,43 +30,46 @@ public class PlatformMover : NetworkBehaviour
         GetComponent<Rigidbody>().MovePosition(pos);
     }
 
-    private void OnCollisionEnter(Collision collision)
-    {
-        if (collision.gameObject.TryGetComponent<NetworkObject>(out NetworkObject networkObject))
-        {
-            queue_obj = null;
-
-            if (networkObject.transform.parent != transform)
-            {
-                OnCollisionEnterServerRpc(networkObject);
-            }
-        }
-    }
-
-    private void OnCollisionExit(Collision collision)
-    {
-        if (collision.gameObject.TryGetComponent<NetworkObject>(out NetworkObject networkObject))
-        {
-            queue_obj = networkObject;
-            exit_cool = 3f;
-        }
-    }
-
-    [ServerRpc(RequireOwnership = false)]
-    private void OnCollisionEnterServerRpc(NetworkObjectReference networkRef)
+    [ServerRpc(RequireOwnership =false)]
+    private void ParentServerRpc(NetworkObjectReference networkRef)
     {
         if (networkRef.TryGet(out NetworkObject networkObject))
         {
-            networkObject.TrySetParent(this.NetworkObject);
+            GetComponent<NetworkObject>().ChangeOwnership(networkObject.OwnerClientId);
+            networkObject.TrySetParent(GetComponent<NetworkObject>());
         }
     }
 
     [ServerRpc(RequireOwnership = false)]
-    private void OnCollisionExitServerRpc(NetworkObjectReference networkRef)
+    private void UnparentServerRpc(NetworkObjectReference networkRef)
     {
         if (networkRef.TryGet(out NetworkObject networkObject))
         {
             networkObject.TryRemoveParent();
+        }
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.gameObject.TryGetComponent<NetworkObject>(out NetworkObject networkObject))
+        {
+            if (networkObject.transform.parent != transform)
+            {
+                ParentServerRpc(networkObject);
+                DebugManager.Instance.AddDebugText("Parented");
+            }
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.gameObject.TryGetComponent<NetworkObject>(out NetworkObject networkObject))
+        {       
+            if (networkObject.transform.parent == transform)
+            {
+                UnparentServerRpc(networkObject);
+                DebugManager.Instance.AddDebugText("Unparented");
+            }
         }
     }
 }

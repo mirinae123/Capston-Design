@@ -41,8 +41,19 @@ public class HitZone : NetworkBehaviour
     {
         if (_isPlayerInside)
         {
-            // DoDmage
-        }
+            PlayerController localPlayer = MultiplayerManager.Instance.LocalPlayer;
+
+            if (localPlayer.PlayerColor.Value == ColorType.Red)
+            {
+                Vector3 targetPosition = GameObject.FindGameObjectWithTag("RedPlayerSpawn").transform.position;
+                localPlayer.gameObject.transform.position = targetPosition;
+            }
+            else
+            {
+                Vector3 targetPosition = GameObject.FindGameObjectWithTag("BluePlayerSpawn").transform.position;
+                localPlayer.gameObject.transform.position = targetPosition;
+            }
+         }
     }
 
     [ClientRpc]

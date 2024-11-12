@@ -1,11 +1,14 @@
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class BossController : NetworkBehaviour, IShootable
 {
     [SerializeField] private HitZone[] _hitZones;
+    [SerializeField] Scrollbar _healthBar;
 
+    private float _maxHealth = 10f;
     private float _health = 10f;
     private bool _inRoutine = false;
 
@@ -14,6 +17,7 @@ public class BossController : NetworkBehaviour, IShootable
         if (IsServer)
         {
             _health -= 1f;
+            UpdateHealthBarClientRpc(_health);
             return true;
         }
         else
@@ -29,7 +33,7 @@ public class BossController : NetworkBehaviour, IShootable
             return;
         }
 
-        if (_health < 0f)
+        if (_health <= 0f)
         {
             foreach(HitZone hitZone in _hitZones)
             {
@@ -49,7 +53,14 @@ public class BossController : NetworkBehaviour, IShootable
     [ClientRpc]
     public void OnDeathClientRpc()
     {
-        Destroy(gameObject); ;
+        _healthBar.gameObject.SetActive(false);
+        Destroy(gameObject);
+    }
+
+    [ClientRpc]
+    public void UpdateHealthBarClientRpc(float newHealth)
+    {
+        _healthBar.size = newHealth / _maxHealth;
     }
 
     IEnumerator PatternCoroutine()

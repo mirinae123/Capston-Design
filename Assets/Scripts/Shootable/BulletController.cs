@@ -11,34 +11,26 @@ public class BulletController : NetworkBehaviour
     }
     private ColorType _bulletColor;
 
-    private Rigidbody _rigidbody;
-
-    public override void OnNetworkSpawn()
-    {
-        _rigidbody = GetComponent<Rigidbody>();
-    }
-
     public void Initialize(ColorType bulletColor, Vector3 direction)
     {
-        _rigidbody.velocity = direction * 32f;
+        GetComponent<Rigidbody>().velocity = direction * 32f;
 
-        ChangeColorClientRpc(bulletColor);
+        _bulletColor = bulletColor;
+        GetComponent<BulletRenderer>().UpdateMeshColor();
     }
 
     public void OnTriggerEnter(Collider other)
     {
+        if (other.gameObject.CompareTag("HitZone"))
+        {
+            return;
+        }
+
         if (other.gameObject.TryGetComponent<IShootable>(out IShootable shootable))
         {
             shootable.OnShot(this);
         }
 
         Destroy(gameObject);
-    }
-
-    [ClientRpc]
-    public void ChangeColorClientRpc(ColorType bulletColor)
-    {
-        _bulletColor = bulletColor;
-        GetComponent<BulletRenderer>().UpdateMeshColor();
     }
 }

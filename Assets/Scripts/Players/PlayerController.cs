@@ -353,10 +353,15 @@ public class PlayerController : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void SpawnBulletServerRpc(ColorType bulletColor, Vector3 position, Vector3 direction)
     {
+        SpawnBulletClientRpc(bulletColor, position, direction);
+    }
+
+    [ClientRpc]
+    public void SpawnBulletClientRpc(ColorType bulletColor, Vector3 position, Vector3 direction)
+    {
         GameObject bullet = Instantiate(_bulletPrefab);
-        
+
         bullet.transform.position = position + direction;
-        bullet.GetComponent<NetworkObject>().Spawn();
         bullet.GetComponent<BulletController>().Initialize(bulletColor, direction);
     }
 

@@ -14,7 +14,10 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/Possession.unity
     guid: 2e17231bdbd8ed94fb0eb7a04cf897b8
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/Elevator.unity
     guid: 815395f48f7ff6f4ba6a98edcf7f4ccf
+  - enabled: 1
+    path: Assets/Scenes/FightSample.unity
+    guid: d385a32f145d3444f851a8b3acacaa00
   m_configObjects: {}

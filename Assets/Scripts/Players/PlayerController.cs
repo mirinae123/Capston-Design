@@ -1,8 +1,5 @@
-using Cinemachine;
-using System.Data;
-using TMPro;
+using System.Collections.Generic;
 using Unity.Netcode;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -11,6 +8,21 @@ using UnityEngine.EventSystems;
 /// </summary>
 public class PlayerController : NetworkBehaviour
 {
+    private float _timer = 0f;
+    private float _tickInterval;
+
+    private int _currentTick = 0;
+
+    private const float TICK_RATE = 60f;
+    private const int BUFFER_SIZE = 1024;
+
+    private InputPayload[] _inputBuffer = new InputPayload[BUFFER_SIZE];
+    private StatePayload[] _stateBuffer = new StatePayload[BUFFER_SIZE];
+
+    private Queue<InputPayload> _inputQueue = new Queue<InputPayload>();
+    private Queue<StatePayload> _stateQueue = new Queue<StatePayload>();
+    private int _lastFetchedTick = 0;
+
     // 이동 속력, 최대 이동 속력, 회전 속력, 점프력
     [SerializeField] private float _walkSpeed = 10;
     [SerializeField] private float _rotateSpeed = 2;
@@ -22,6 +34,7 @@ public class PlayerController : NetworkBehaviour
     private CapsuleCollider _capsuleCollider;
 
     // 플레이어 조작에 쓰이는 보조 변수
+    private float _pitchAngle;
     private bool _isGrounded = true;
 
     // 테스트용 화면 고정 변수
@@ -44,11 +57,11 @@ public class PlayerController : NetworkBehaviour
     /// <summary>
     /// 플레이어의 메인 카메라
     /// </summary>
-    public CinemachineFreeLook MainCamera
+    public GameObject MainCamera
     {
         get => _mainCamera;
     }
-    private CinemachineFreeLook _mainCamera;
+    private GameObject _mainCamera;
 
     /// <summary>
     /// 현재 상호작용 중인 물체
@@ -80,6 +93,8 @@ public class PlayerController : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        _tickInterval = 1f / TICK_RATE;
+
         _rigidbody = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
 
@@ -119,22 +134,92 @@ public class PlayerController : NetworkBehaviour
         }
     }
 
+    private void FixedUpdate()
+    {
+        if (!IsOwner)
+        {
+            return;
+        }
+    }
+
     private void Update()
     {
+        if (IsServer && !IsOwner)
+        {
+            while (_inputQueue.Count > 0)
+            {
+                InputPayload inputPayload = _inputQueue.Dequeue();
+                StatePayload statePayload = ProcessInput(inputPayload);
+
+                SendStatePayloadClientRpc(statePayload);
+            }
+        }
+
+        if (!IsServer)
+        {
+            DebugManager.Instance.AddDebugText($"{_playerColor.Value}: {_stateQueue.Count}");
+            while (_stateQueue.Count > 0)
+            {
+                StatePayload statePayload = _stateQueue.Dequeue();
+
+                int bufferIndex = statePayload.tick % BUFFER_SIZE;
+                Vector3 error = statePayload.position - _stateBuffer[bufferIndex].position;
+
+                if (error.sqrMagnitude > 0.000001f)
+                {
+                    _rigidbody.position = statePayload.position;
+                    _rigidbody.rotation = statePayload.rotation;
+                    _rigidbody.velocity = statePayload.velocity;
+                    _rigidbody.angularVelocity = statePayload.angularVelocity;
+
+                    int rewindTick = statePayload.tick + 1;
+                    while (rewindTick < _currentTick)
+                    {
+                        bufferIndex = rewindTick % BUFFER_SIZE;
+
+                        InputPayload inputPayload = _inputBuffer[bufferIndex];
+                        _stateBuffer[bufferIndex] = ProcessInput(inputPayload);
+
+                        rewindTick++;
+                    }
+                }
+            }
+        }
+
         // 로컬 플레이어가 아닌 경우 스킵
         if (!IsOwner)
         {
             return;
         }
 
-        // 이동
-        Move();
+        _timer += Time.deltaTime;
+
+        while (_timer >= Time.fixedDeltaTime)
+        {
+            _timer -= Time.fixedDeltaTime;
+
+            InputPayload inputPayload = GetInput();
+            _inputBuffer[_currentTick % BUFFER_SIZE] = inputPayload;
+
+            if (!IsServer)
+            {
+                SendInputPayloadServerRpc(inputPayload);
+            }
+
+            StatePayload statePayload = ProcessInput(inputPayload);
+            _stateBuffer[_currentTick % BUFFER_SIZE] = statePayload;
+
+            if (IsServer)
+            {
+                SendStatePayloadClientRpc(statePayload);
+            }
+
+            _currentTick++;
+        }
+
 
         // 플레이어 회전
         Rotate();
-
-        // 점프
-        Jump();
 
         // 플레이어가 보고 있는 물체 확인
         CheckInteractable();
@@ -178,8 +263,7 @@ public class PlayerController : NetworkBehaviour
         {
             gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
 
-            Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out RaycastHit hit);
-            SpawnBulletServerRpc(_playerColor.Value, transform.position, (hit.point - transform.position).normalized);
+            SpawnBulletServerRpc(_playerColor.Value, _mainCamera.transform.position, _mainCamera.transform.forward);
 
             gameObject.layer = LayerMask.NameToLayer(_playerColor.Value.ToString());      
         }
@@ -212,11 +296,64 @@ public class PlayerController : NetworkBehaviour
         MultiplayerManager.LocalPlayerSet.Invoke();
 
         // 메인 카메라 생성
-        _mainCamera = GameObject.FindAnyObjectByType<CinemachineFreeLook>();
-        _mainCamera.Follow = transform;
-        _mainCamera.LookAt = transform;
+        _mainCamera = new GameObject();
+        _mainCamera.transform.parent = transform;
+        _mainCamera.transform.position = new Vector3(0f, 0.6f, 0.3f);
+        _mainCamera.AddComponent<Camera>();
+        _mainCamera.AddComponent<AudioListener>();
+        _mainCamera.tag = "MainCamera";
 
         Cursor.lockState = CursorLockMode.Locked;
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void SendInputPayloadServerRpc(InputPayload inputPayload)
+    {
+        _inputQueue.Enqueue(inputPayload);
+    }
+
+    [ClientRpc]
+    private void SendStatePayloadClientRpc(StatePayload statePayload)
+    {
+        _stateQueue.Enqueue(statePayload);
+    }
+
+
+    private InputPayload GetInput()
+    {
+        InputPayload inputPayload = new InputPayload();
+
+        float horizontalKey = Input.GetAxis("Horizontal");
+        float verticalKey = Input.GetAxis("Vertical");
+
+        bool jumpPushed = Input.GetKey(KeyCode.Space) && IsGrounded();
+
+        Vector3 moveDirection = (verticalKey * transform.forward + horizontalKey * transform.right).normalized * _walkSpeed;
+
+        inputPayload.tick = _currentTick;
+
+        inputPayload.move.x = moveDirection.x;
+        inputPayload.move.y = jumpPushed ? 1 : 0;
+        inputPayload.move.z = moveDirection.z;
+
+        return inputPayload;
+    }
+
+    private StatePayload ProcessInput(InputPayload inputPayload)
+    {
+        StatePayload statePayload = new StatePayload();
+
+        _rigidbody.velocity = new Vector3(inputPayload.move.x, inputPayload.move.y > 0 ? _jumpSpeed : _rigidbody.velocity.y, inputPayload.move.z);
+        Physics.Simulate(Time.fixedDeltaTime);
+
+        statePayload.tick = inputPayload.tick;
+
+        statePayload.position = _rigidbody.position;
+        statePayload.rotation = _rigidbody.rotation;
+        statePayload.velocity = _rigidbody.velocity;
+        statePayload.angularVelocity = _rigidbody.angularVelocity;
+
+        return statePayload;
     }
 
     /// <summary>
@@ -224,11 +361,7 @@ public class PlayerController : NetworkBehaviour
     /// </summary>
     private void Move()
     {
-        float h = Input.GetAxis("Horizontal");
-        float v = Input.GetAxis("Vertical");
-
-        Vector3 moveDirection = Quaternion.Euler(0, _mainCamera.State.FinalOrientation.eulerAngles.y, 0) * new Vector3(h, 0, v).normalized * _walkSpeed;
-        _rigidbody.velocity = new Vector3(moveDirection.x, _rigidbody.velocity.y, moveDirection.z);
+        
     }
 
     /// <summary>
@@ -236,7 +369,14 @@ public class PlayerController : NetworkBehaviour
     /// </summary>
     private void Rotate()
     {
-        transform.Rotate(0, _mainCamera.State.FinalOrientation.eulerAngles.y - transform.rotation.eulerAngles.y, 0f);
+        float h = Input.GetAxis("Mouse X");
+        float v = -Input.GetAxis("Mouse Y");
+
+        _pitchAngle = Mathf.Clamp(_pitchAngle + v * _rotateSpeed, -90, 90);
+
+        transform.Rotate(new Vector3(0, h * _rotateSpeed, 0));
+        Vector3 cameraRotation = _mainCamera.transform.rotation.eulerAngles;
+        _mainCamera.transform.rotation = Quaternion.Euler(_pitchAngle, cameraRotation.y, cameraRotation.z);
     }
 
     /// <summary>
@@ -244,13 +384,7 @@ public class PlayerController : NetworkBehaviour
     /// </summary>
     private void Jump()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && IsGrounded())
-        {
-            Vector3 newVelocity = _rigidbody.velocity;
-            newVelocity.y = _jumpSpeed;
-
-            _rigidbody.velocity = newVelocity;
-        }
+        
     }
 
     /// <summary>
@@ -281,7 +415,7 @@ public class PlayerController : NetworkBehaviour
             // 레이캐스트 동안에는 플레이어 무시
             int currentLayer = gameObject.layer;
             gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
-            Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out RaycastHit hit);
+            Physics.Raycast(_mainCamera.transform.position, _mainCamera.transform.forward * 5f, out RaycastHit hit);
             gameObject.layer = currentLayer;
 
             if (hit.collider == null)
@@ -302,8 +436,7 @@ public class PlayerController : NetworkBehaviour
                         _objectOnPointer = null;
                     }
 
-                    if (hit.collider.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable) && interactable.IsInteractable(this) &&
-                        (hit.collider.gameObject.transform.position - transform.position).magnitude < 5f)
+                    if (hit.collider.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable) && interactable.IsInteractable(this))
                     {
                         _objectOnPointer = hit.collider.gameObject;
                         _interactableOnPointer = interactable;

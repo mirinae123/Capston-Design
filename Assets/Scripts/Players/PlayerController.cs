@@ -6,23 +6,8 @@ using UnityEngine.EventSystems;
 /// <summary>
 /// 플레이어 조작과 정보에 대한 클래스.
 /// </summary>
-public class PlayerController : NetworkBehaviour
+public class PlayerController : NetworkSyncObject
 {
-    private float _timer = 0f;
-    private float _tickInterval;
-
-    private int _currentTick = 0;
-
-    private const float TICK_RATE = 60f;
-    private const int BUFFER_SIZE = 1024;
-
-    private InputPayload[] _inputBuffer = new InputPayload[BUFFER_SIZE];
-    private StatePayload[] _stateBuffer = new StatePayload[BUFFER_SIZE];
-
-    private Queue<InputPayload> _inputQueue = new Queue<InputPayload>();
-    private Queue<StatePayload> _stateQueue = new Queue<StatePayload>();
-    private int _lastFetchedTick = 0;
-
     // 이동 속력, 최대 이동 속력, 회전 속력, 점프력
     [SerializeField] private float _walkSpeed = 10;
     [SerializeField] private float _rotateSpeed = 2;
@@ -30,12 +15,10 @@ public class PlayerController : NetworkBehaviour
 
     [SerializeField] private GameObject _bulletPrefab;
 
-    private Rigidbody _rigidbody;
     private CapsuleCollider _capsuleCollider;
 
     // 플레이어 조작에 쓰이는 보조 변수
     private float _pitchAngle;
-    private bool _isGrounded = true;
 
     // 테스트용 화면 고정 변수
     private bool _isFixed = false;
@@ -93,9 +76,8 @@ public class PlayerController : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        _tickInterval = 1f / TICK_RATE;
+        base.OnNetworkSpawn();
 
-        _rigidbody = GetComponent<Rigidbody>();
         _capsuleCollider = GetComponent<CapsuleCollider>();
 
         _height = _capsuleCollider.height * transform.localScale.y;
@@ -144,47 +126,6 @@ public class PlayerController : NetworkBehaviour
 
     private void Update()
     {
-        if (IsServer && !IsOwner)
-        {
-            while (_inputQueue.Count > 0)
-            {
-                InputPayload inputPayload = _inputQueue.Dequeue();
-                StatePayload statePayload = ProcessInput(inputPayload);
-
-                SendStatePayloadClientRpc(statePayload);
-            }
-        }
-
-        if (!IsServer)
-        {
-            DebugManager.Instance.AddDebugText($"{_playerColor.Value}: {_stateQueue.Count}");
-            while (_stateQueue.Count > 0)
-            {
-                StatePayload statePayload = _stateQueue.Dequeue();
-
-                int bufferIndex = statePayload.tick % BUFFER_SIZE;
-                Vector3 error = statePayload.position - _stateBuffer[bufferIndex].position;
-
-                if (error.sqrMagnitude > 0.000001f)
-                {
-                    _rigidbody.position = statePayload.position;
-                    _rigidbody.rotation = statePayload.rotation;
-                    _rigidbody.velocity = statePayload.velocity;
-                    _rigidbody.angularVelocity = statePayload.angularVelocity;
-
-                    int rewindTick = statePayload.tick + 1;
-                    while (rewindTick < _currentTick)
-                    {
-                        bufferIndex = rewindTick % BUFFER_SIZE;
-
-                        InputPayload inputPayload = _inputBuffer[bufferIndex];
-                        _stateBuffer[bufferIndex] = ProcessInput(inputPayload);
-
-                        rewindTick++;
-                    }
-                }
-            }
-        }
 
         // 로컬 플레이어가 아닌 경우 스킵
         if (!IsOwner)
@@ -192,34 +133,8 @@ public class PlayerController : NetworkBehaviour
             return;
         }
 
-        _timer += Time.deltaTime;
-
-        while (_timer >= Time.fixedDeltaTime)
-        {
-            _timer -= Time.fixedDeltaTime;
-
-            InputPayload inputPayload = GetInput();
-            _inputBuffer[_currentTick % BUFFER_SIZE] = inputPayload;
-
-            if (!IsServer)
-            {
-                SendInputPayloadServerRpc(inputPayload);
-            }
-
-            StatePayload statePayload = ProcessInput(inputPayload);
-            _stateBuffer[_currentTick % BUFFER_SIZE] = statePayload;
-
-            if (IsServer)
-            {
-                SendStatePayloadClientRpc(statePayload);
-            }
-
-            _currentTick++;
-        }
-
-
         // 플레이어 회전
-        Rotate();
+        // Rotate();
 
         // 플레이어가 보고 있는 물체 확인
         CheckInteractable();
@@ -318,50 +233,45 @@ public class PlayerController : NetworkBehaviour
         _stateQueue.Enqueue(statePayload);
     }
 
-
-    private InputPayload GetInput()
+    public override bool GetInput()
     {
-        InputPayload inputPayload = new InputPayload();
+        if (IsOwner)
+        {
+            float horizontalKey = Input.GetAxis("Horizontal");
+            float verticalKey = Input.GetAxis("Vertical");
 
-        float horizontalKey = Input.GetAxis("Horizontal");
-        float verticalKey = Input.GetAxis("Vertical");
+            float horizontalMouse = Input.GetAxis("Mouse X");
+            float verticalMouse = -Input.GetAxis("Mouse Y");
 
-        bool jumpPushed = Input.GetKey(KeyCode.Space) && IsGrounded();
+            bool jumpPushed = Input.GetKey(KeyCode.Space);
 
-        Vector3 moveDirection = (verticalKey * transform.forward + horizontalKey * transform.right).normalized * _walkSpeed;
+            Vector3 moveDirection = (verticalKey * transform.forward + horizontalKey * transform.right).normalized * _walkSpeed;
 
-        inputPayload.tick = _currentTick;
+            _pitchAngle = Mathf.Clamp(_pitchAngle + verticalMouse * _rotateSpeed, -90, 90);
 
-        inputPayload.move.x = moveDirection.x;
-        inputPayload.move.y = jumpPushed ? 1 : 0;
-        inputPayload.move.z = moveDirection.z;
+            _processingInput.tick = NetworkSyncManager.Instance.CurrentTick;
 
-        return inputPayload;
+            _processingInput.inputVector.x = moveDirection.x;
+            _processingInput.inputVector.y = jumpPushed ? _jumpSpeed : 0;
+            _processingInput.inputVector.z = moveDirection.z;
+
+            _processingInput.subVector.y = horizontalMouse * _rotateSpeed;
+
+            Vector3 cameraRotation = _mainCamera.transform.rotation.eulerAngles;
+            _mainCamera.transform.rotation = Quaternion.Euler(_pitchAngle, cameraRotation.y, cameraRotation.z);
+
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
-    private StatePayload ProcessInput(InputPayload inputPayload)
+    public override void ApplyInput(InputPayload inputPayload)
     {
-        StatePayload statePayload = new StatePayload();
-
-        _rigidbody.velocity = new Vector3(inputPayload.move.x, inputPayload.move.y > 0 ? _jumpSpeed : _rigidbody.velocity.y, inputPayload.move.z);
-        Physics.Simulate(Time.fixedDeltaTime);
-
-        statePayload.tick = inputPayload.tick;
-
-        statePayload.position = _rigidbody.position;
-        statePayload.rotation = _rigidbody.rotation;
-        statePayload.velocity = _rigidbody.velocity;
-        statePayload.angularVelocity = _rigidbody.angularVelocity;
-
-        return statePayload;
-    }
-
-    /// <summary>
-    /// 플레이어를 이동한다.
-    /// </summary>
-    private void Move()
-    {
-        
+        _rigidbody.velocity = new Vector3(inputPayload.inputVector.x, inputPayload.inputVector.y > 0 ? (IsGrounded() ? _jumpSpeed : _rigidbody.velocity.y) : _rigidbody.velocity.y, inputPayload.inputVector.z);
+        transform.Rotate(inputPayload.subVector);
     }
 
     /// <summary>
@@ -374,7 +284,7 @@ public class PlayerController : NetworkBehaviour
 
         _pitchAngle = Mathf.Clamp(_pitchAngle + v * _rotateSpeed, -90, 90);
 
-        transform.Rotate(new Vector3(0, h * _rotateSpeed, 0));
+        // transform.Rotate(new Vector3(0, h * _rotateSpeed, 0));
         Vector3 cameraRotation = _mainCamera.transform.rotation.eulerAngles;
         _mainCamera.transform.rotation = Quaternion.Euler(_pitchAngle, cameraRotation.y, cameraRotation.z);
     }

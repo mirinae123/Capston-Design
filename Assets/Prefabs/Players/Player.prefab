@@ -152,7 +152,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _walkSpeed: 10
-  _rotateSpeed: 2
+  _rotateSpeed: 3
   _jumpSpeed: 20
   _bulletPrefab: {fileID: 1309831380146943069, guid: 43e2fbf83abb5f6438643624d2002609, type: 3}
 --- !u!114 &6082467177090370918

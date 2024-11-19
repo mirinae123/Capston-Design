@@ -3,6 +3,7 @@ using UnityEngine;
 
 public struct StatePayload : INetworkSerializable
 {
+    public NetworkObjectReference gameObject;
     public int tick;
 
     public Vector3 position;
@@ -12,6 +13,7 @@ public struct StatePayload : INetworkSerializable
 
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
     {
+        serializer.SerializeValue(ref gameObject);
         serializer.SerializeValue(ref tick);
         serializer.SerializeValue(ref position);
         serializer.SerializeValue(ref rotation);

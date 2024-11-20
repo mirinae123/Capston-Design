@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using Unity.Netcode;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -8,6 +9,7 @@ public class NetworkSyncManager : NetworkBehaviour
     public static NetworkSyncManager Instance;
 
     private float _timer = 0f;
+    private bool _isRunning = false;
 
     public int CurrentTick
     {
@@ -28,6 +30,13 @@ public class NetworkSyncManager : NetworkBehaviour
         set => _reconcileTick = value;
     }
     private int _reconcileTick = 0;
+
+    public int LastReconciledTick
+    {
+        get => _lastReconciledTick;
+        set => _lastReconciledTick = value;
+    }
+    private int _lastReconciledTick = 0;
 
     public Action GetClientInput
     {
@@ -71,18 +80,26 @@ public class NetworkSyncManager : NetworkBehaviour
     }
     private Action<int> _preReconcile;
 
-    public Action<int> Reconcile
+    public Action<int> GetReconcileInput
     {
-        get => _reconcile;
-        set => _reconcile = value;
+        get => _getReconcileInput;
+        set => _getReconcileInput = value;
     }
-    private Action<int> _reconcile;
+    private Action<int> _getReconcileInput;
+
+    public Action GetReconcileState
+    {
+        get => _getReconcileState;
+        set => _getReconcileState = value;
+    }
+    private Action _getReconcileState;
 
     private void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
+            DontDestroyOnLoad(gameObject);
         }
         else
         {
@@ -90,9 +107,37 @@ public class NetworkSyncManager : NetworkBehaviour
         }
     }
 
+    public override void OnNetworkSpawn()
+    {
+        if (IsServer)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback += (ulong id) =>
+            {
+                if (NetworkManager.Singleton.ConnectedClients.Count == 2)
+                {
+                    SetRunningStateClientRPc(true);
+                }
+            };
+
+            NetworkManager.Singleton.OnClientDisconnectCallback += (ulong id) =>
+            {
+                if (NetworkManager.Singleton.ConnectedClients.Count < 2)
+                {
+                    SetRunningStateClientRPc(false);
+                }
+            };
+        }
+    }
+
+    [ClientRpc(RequireOwnership = false)]
+    private void SetRunningStateClientRPc(bool runningState)
+    {
+        _isRunning = runningState;
+    }
+
     private void Update()
     {
-        if (!NetworkManager.Singleton.IsServer && !NetworkManager.Singleton.IsClient)
+        if (!_isRunning)
         {
             return;
         }
@@ -122,25 +167,42 @@ public class NetworkSyncManager : NetworkBehaviour
             _currentTick++;
         }
 
-        //if (!IsServer)
-        //{
-        //    _getReconcileCondition?.Invoke();
+        if (!IsServer)
+        {
+            _getReconcileCondition?.Invoke();
 
-        //    if (_needReconcile)
-        //    {
-        //        _preReconcile?.Invoke(_reconcileTick);
+            if (_needReconcile)
+            {
+                _lastReconciledTick = _reconcileTick;
+                _preReconcile?.Invoke(_reconcileTick);
 
-        //        _reconcileTick++;
+                _reconcileTick++;
 
-        //        while (_reconcileTick < _currentTick)
-        //        {
-        //            _reconcile?.Invoke(_reconcileTick);
-        //            Physics.Simulate(Time.fixedDeltaTime);
-        //            _reconcileTick++;
-        //        }
+                while (_reconcileTick < _currentTick)
+                {
+                    _getReconcileInput.Invoke(_reconcileTick);
+                    Physics.Simulate(Time.fixedDeltaTime);
+                    _getReconcileState.Invoke();
 
-        //        _needReconcile = false;
-        //    }
-        //}
+                    _reconcileTick++;
+                }
+
+                _needReconcile = false;
+            }
+        }
+    }
+
+    void OnGUI()
+    {
+        Color originalColor = GUI.backgroundColor;
+        GUI.backgroundColor = Color.black;
+
+        GUI.Box(new Rect(45, 15, 410, 30), GUIContent.none);
+
+        GUILayout.BeginArea(new Rect(50, 20, 400, 100));
+        GUILayout.Label($"CurrentTick: {_currentTick}\t Reconcile Tick: {_reconcileTick}");
+        GUILayout.EndArea();
+
+        GUI.backgroundColor = originalColor;
     }
 }

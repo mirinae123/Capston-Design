@@ -10,10 +10,9 @@ public struct PlayerInputPayload : ICompressible
 {
     private int tick;
     private byte objectID;
-    public sbyte vertical;
-    public sbyte horizontal;
+    public Vector3 inputVector;
+    public Vector3 subVector;
     private byte numberOfCopies;
-    public bool spacePressed;
 
     public int Tick { get => tick; set => this.tick = value; }
 
@@ -21,29 +20,12 @@ public struct PlayerInputPayload : ICompressible
 
     public byte NumberOfCopies { get => numberOfCopies; set => this.numberOfCopies = value; }
 
-    public void SetAxis(float horizontal, float vertical)
-    {
-        this.vertical = (sbyte)(vertical * 100f);
-        this.horizontal = (sbyte)(horizontal * 100f);
-    }
-
-    public float GetHorizontal()
-    {
-        return horizontal / 100f;
-    }
-
-    public float GetVertical()
-    {
-        return vertical / 100f;
-    }
-
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
     {
         serializer.SerializeValue(ref objectID);
-        serializer.SerializeValue(ref vertical);
-        serializer.SerializeValue(ref horizontal);
+        serializer.SerializeValue(ref inputVector);
+        serializer.SerializeValue(ref subVector);
         serializer.SerializeValue(ref numberOfCopies);
-        serializer.SerializeValue(ref spacePressed);
     }
 }
 

@@ -27,9 +27,8 @@ public class PredictionTimer : NetworkBehaviour
     // Update is called once per frame
     void Update()
     {
-        // Check to ensure the server or client has started
         if (!NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsServer) return;
-        // This loop ensures that each device has the same fixed time step.
+
         timer += Time.deltaTime;
         while (timer >= minTimeBetweenTicks)
         {

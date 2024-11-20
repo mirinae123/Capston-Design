@@ -1,6 +1,7 @@
+using Unity.Netcode;
 using UnityEngine;
 
-public class PlatformMover : NetworkSyncObject
+public class PlatformMover : NetworkBehaviour
 {
     float acc_time = 0f;
     
@@ -19,23 +20,23 @@ public class PlatformMover : NetworkSyncObject
         }
     }
 
-    public override bool GetInput()
-    {
-        if (IsServer)
-        {
-            _processingInput.inputVector.y = (Mathf.Sin(acc_time) + 1) * 5;
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
+    //public override bool GetInput()
+    //{
+    //    if (IsServer)
+    //    {
+    //        _processingInput.inputVector.y = (Mathf.Sin(acc_time) + 1) * 5;
+    //        return true;
+    //    }
+    //    else
+    //    {
+    //        return false;
+    //    }
+    //}
 
-    public override void ApplyInput(InputPayload inputPayload)
-    {
-        Vector3 pos = transform.position;
-        pos.y = inputPayload.inputVector.y;
-        GetComponent<Rigidbody>().MovePosition(pos);
-    }
+    //public override void ApplyInput(InputPayload inputPayload)
+    //{
+    //    Vector3 pos = transform.position;
+    //    pos.y = inputPayload.inputVector.y;
+    //    GetComponent<Rigidbody>().MovePosition(pos);
+    //}
 }

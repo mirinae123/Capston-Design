@@ -111,6 +111,7 @@ public class PredictionManager : NetworkBehaviour
             int tickToProcess = DoReconcile();
             ServerReconcile(tickToProcess);
         }
+
         //Get and Apply all player inputs
         if (OnInputs != null) OnInputs();
 

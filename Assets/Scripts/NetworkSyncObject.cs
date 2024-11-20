@@ -16,7 +16,6 @@ public class NetworkSyncObject : NetworkBehaviour
     protected InputPayload _processingInput;
     protected StatePayload _reconcileTarget;
     protected int _processingTick = 0;
-    protected int _lastProcessedTick = 0;
 
     protected Rigidbody _rigidbody;
 
@@ -29,14 +28,15 @@ public class NetworkSyncObject : NetworkBehaviour
 
         if (IsServer)
         {
-            NetworkSyncManager.Instance.GetServerInput += GetServerInput;
+            if (!IsOwner) NetworkSyncManager.Instance.GetServerInput += GetServerInput;
             NetworkSyncManager.Instance.GetServerState += GetServerState;
         }
         else
         {
             NetworkSyncManager.Instance.GetReconcileCondition += GetReconcileCondition;
             NetworkSyncManager.Instance.PreReconcile += PreReconcile;
-            NetworkSyncManager.Instance.Reconcile += Reconcile;
+            NetworkSyncManager.Instance.GetReconcileInput += GetReconcileInput;
+            NetworkSyncManager.Instance.GetReconcileState += GetReconcileState;
         }
     }
 
@@ -54,7 +54,8 @@ public class NetworkSyncObject : NetworkBehaviour
         {
             NetworkSyncManager.Instance.GetReconcileCondition -= GetReconcileCondition;
             NetworkSyncManager.Instance.PreReconcile -= PreReconcile;
-            NetworkSyncManager.Instance.Reconcile -= Reconcile;
+            NetworkSyncManager.Instance.GetReconcileInput -= GetReconcileInput;
+            NetworkSyncManager.Instance.GetReconcileState -= GetReconcileState;
         }
     }
 
@@ -73,7 +74,14 @@ public class NetworkSyncObject : NetworkBehaviour
         if (GetInput())
         {
             ApplyInput(_processingInput);
-            SendInputServerRpc(_processingInput);
+            if (IsServer)
+            {
+                SendInputClientRpc(_processingInput);
+            }
+            else
+            {
+                SendInputServerRpc(_processingInput);
+            }
         }
     }
 
@@ -81,7 +89,7 @@ public class NetworkSyncObject : NetworkBehaviour
     {
         StatePayload statePayload = new StatePayload();
 
-        statePayload.tick = _processingInput.tick;
+        statePayload.tick = NetworkSyncManager.Instance.CurrentTick;
 
         statePayload.position = _rigidbody.position;
         statePayload.rotation = _rigidbody.rotation;
@@ -120,7 +128,7 @@ public class NetworkSyncObject : NetworkBehaviour
         {
             StatePayload statePayload = _stateQueue.Dequeue();
 
-            if (_lastProcessedTick > statePayload.tick)
+            if (statePayload.tick < NetworkSyncManager.Instance.LastReconciledTick)
             {
                 continue;
             }
@@ -136,6 +144,7 @@ public class NetworkSyncObject : NetworkBehaviour
 
             if (error.sqrMagnitude > 0.00001f)
             {
+                // DebugManager.Instance.AddDebugText($"{statePayload.position.x:0.00} {statePayload.position.y:0.00} {statePayload.position.z:0.00} :: {_stateBuffer[bufferIndex].position.x:0.00} {_stateBuffer[bufferIndex].position.y:0.00} {_stateBuffer[bufferIndex].position.z:0.00}");
                 if (!NetworkSyncManager.Instance.NeedReconcile)
                 {
                     NetworkSyncManager.Instance.NeedReconcile = true;
@@ -155,7 +164,7 @@ public class NetworkSyncObject : NetworkBehaviour
 
     protected void PreReconcile(int reconcileTick)
     {
-        _lastProcessedTick = reconcileTick;
+        int bufferIndex = reconcileTick % BUFFER_SIZE;
 
         if (_reconcileTarget.tick == reconcileTick)
         {
@@ -166,8 +175,6 @@ public class NetworkSyncObject : NetworkBehaviour
         }
         else
         {
-            int bufferIndex = reconcileTick % BUFFER_SIZE;
-
             if (_stateBuffer[bufferIndex].tick % BUFFER_SIZE == bufferIndex)
             {
                 _rigidbody.position = _stateBuffer[bufferIndex].position;
@@ -178,28 +185,29 @@ public class NetworkSyncObject : NetworkBehaviour
         }
     }
 
-    protected void Reconcile(int reconcileTick)
+    protected void GetReconcileInput(int reconcileTick)
     {
-        int preBufferIndex = (reconcileTick - 1) % BUFFER_SIZE;
         int bufferIndex = reconcileTick % BUFFER_SIZE;
-
-        _stateBuffer[preBufferIndex].position = _rigidbody.position;
-        _stateBuffer[preBufferIndex].rotation = _rigidbody.rotation;
-        _stateBuffer[preBufferIndex].velocity = _rigidbody.velocity;
-        _stateBuffer[preBufferIndex].angularVelocity = _rigidbody.angularVelocity;
 
         if (reconcileTick == _inputBuffer[bufferIndex].tick)
         {
-            InputPayload inputPayload = _inputBuffer[bufferIndex];
-            ApplyInput(inputPayload);
+            _processingInput = _inputBuffer[bufferIndex];
+            ApplyInput(_processingInput);
         }
-        else if (reconcileTick == _stateBuffer[bufferIndex].tick)
-        {
-            _rigidbody.position = _stateBuffer[bufferIndex].position;
-            _rigidbody.rotation = _stateBuffer[bufferIndex].rotation;
-            _rigidbody.velocity = _stateBuffer[bufferIndex].velocity;
-            _rigidbody.angularVelocity = _stateBuffer[bufferIndex].angularVelocity;
-        }
+    }
+
+    protected void GetReconcileState()
+    {
+        StatePayload statePayload = new StatePayload();
+
+        statePayload.tick = _processingInput.tick;
+
+        statePayload.position = _rigidbody.position;
+        statePayload.rotation = _rigidbody.rotation;
+        statePayload.velocity = _rigidbody.velocity;
+        statePayload.angularVelocity = _rigidbody.angularVelocity;
+
+        _stateBuffer[statePayload.tick % BUFFER_SIZE] = statePayload;
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -220,5 +228,52 @@ public class NetworkSyncObject : NetworkBehaviour
     private void SendStateClientRpc(StatePayload statePayload)
     {
         _stateQueue.Enqueue(statePayload);
+    }
+
+    void OnGUI()
+    {
+        Color originalColor = GUI.backgroundColor;
+        GUI.backgroundColor = Color.black;
+
+        GUIStyle customLabelStyle = new GUIStyle(GUI.skin.label);
+        customLabelStyle.padding = new RectOffset(2, 2, 2, 2);
+        customLabelStyle.margin = new RectOffset(0, 0, 0, 0);
+
+
+        if (gameObject.TryGetComponent<PlayerController>(out PlayerController pc))
+        {
+            if (pc.PlayerColor.Value == ColorType.Red || pc.PlayerColor.Value == ColorType.Blue)
+            {
+                if (pc.PlayerColor.Value == ColorType.Red)
+                {
+                    GUI.Box(new Rect(45, 55, 260, 300), GUIContent.none);
+                    GUILayout.BeginArea(new Rect(50, 60, 250, 290));
+
+                    GUILayout.Label("Red:", customLabelStyle);
+                }
+                else if (pc.PlayerColor.Value == ColorType.Blue)
+                {
+                    GUI.Box(new Rect(315, 55, 260, 300), GUIContent.none);
+                    GUILayout.BeginArea(new Rect(320, 60, 250, 290));
+                    GUILayout.Label("Blue:");
+                }
+                GUILayout.Label($"Processing Tick: {_processingTick}");
+                GUILayout.Label($"Reconcile Target: {_reconcileTarget.tick}");
+
+                GUILayout.Label($"Input: \t\t State:");
+
+                if (NetworkSyncManager.Instance.CurrentTick >= 10)
+                {
+                    for (int j = NetworkSyncManager.Instance.CurrentTick - 10; j < NetworkSyncManager.Instance.CurrentTick; j++)
+                    {
+                        int i = j % 1024;
+                        GUILayout.Label($"{_inputBuffer[i].tick % 1000}: {_inputBuffer[i].inputVector.x:0.0} {_inputBuffer[i].inputVector.y:0.0} {_inputBuffer[i].inputVector.z:0.0} \t {_stateBuffer[i].tick % 1000}: {_stateBuffer[i].position.x:0.0} {_stateBuffer[i].position.y:0.0} {_stateBuffer[i].position.z:0.0}", customLabelStyle);
+                    }
+                }
+                GUILayout.EndArea();
+            }
+        }
+
+        GUI.backgroundColor = originalColor;
     }
 }

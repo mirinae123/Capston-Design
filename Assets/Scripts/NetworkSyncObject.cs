@@ -135,7 +135,7 @@ public class NetworkSyncObject : NetworkBehaviour
 
             int bufferIndex = statePayload.tick % BUFFER_SIZE;
 
-            if (_stateBuffer[bufferIndex].tick % BUFFER_SIZE != bufferIndex)
+            if (_stateBuffer[bufferIndex].tick != statePayload.tick)
             {
                 continue;
             }
@@ -144,7 +144,7 @@ public class NetworkSyncObject : NetworkBehaviour
 
             if (error.sqrMagnitude > 0.00001f)
             {
-                // DebugManager.Instance.AddDebugText($"{statePayload.position.x:0.00} {statePayload.position.y:0.00} {statePayload.position.z:0.00} :: {_stateBuffer[bufferIndex].position.x:0.00} {_stateBuffer[bufferIndex].position.y:0.00} {_stateBuffer[bufferIndex].position.z:0.00}");
+                DebugManager.Instance.AddDebugText($"{statePayload.position.x:0.00} {statePayload.position.y:0.00} {statePayload.position.z:0.00} :: {_stateBuffer[bufferIndex].position.x:0.00} {_stateBuffer[bufferIndex].position.y:0.00} {_stateBuffer[bufferIndex].position.z:0.00}");
                 if (!NetworkSyncManager.Instance.NeedReconcile)
                 {
                     NetworkSyncManager.Instance.NeedReconcile = true;
@@ -175,7 +175,7 @@ public class NetworkSyncObject : NetworkBehaviour
         }
         else
         {
-            if (_stateBuffer[bufferIndex].tick % BUFFER_SIZE == bufferIndex)
+            if (_stateBuffer[bufferIndex].tick == reconcileTick)
             {
                 _rigidbody.position = _stateBuffer[bufferIndex].position;
                 _rigidbody.rotation = _stateBuffer[bufferIndex].rotation;

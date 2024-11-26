@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,6 +16,7 @@ public class NetworkUI : MonoBehaviour
     [SerializeField] Button _hostButton;
     [SerializeField] Button _clientButton;
     [SerializeField] TMP_Text _yourColorText;
+    [SerializeField] TMP_InputField _ipInputField;
 
     public void Awake()
     {
@@ -23,20 +25,28 @@ public class NetworkUI : MonoBehaviour
 
     public void Start()
     {
+        _ipInputField.text = "127.0.0.1";
+
         _hostButton.onClick.AddListener(() =>
         {
+            UnityTransport transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport as UnityTransport;
+            transport.ConnectionData.Address = _ipInputField.text;
             NetworkManager.Singleton.StartHost();
 
             _hostButton.gameObject.SetActive(false);
             _clientButton.gameObject.SetActive(false);
+            _ipInputField.gameObject.SetActive(false);
         }
         );
         _clientButton.onClick.AddListener(() =>
         {
+            UnityTransport transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport as UnityTransport;
+            transport.ConnectionData.Address = _ipInputField.text;
             NetworkManager.Singleton.StartClient();
 
             _hostButton.gameObject.SetActive(false);
             _clientButton.gameObject.SetActive(false);
+            _ipInputField.gameObject.SetActive(false);
         }
         );
     }

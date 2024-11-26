@@ -23,6 +23,7 @@ public class PlayerController : NetworkBehaviour
 
     // 플레이어 조작에 쓰이는 보조 변수
     private bool _isGrounded = true;
+    private float _pitchAngle = 0f;
 
     // 테스트용 화면 고정 변수
     private bool _isFixed = false;
@@ -44,11 +45,11 @@ public class PlayerController : NetworkBehaviour
     /// <summary>
     /// 플레이어의 메인 카메라
     /// </summary>
-    public CinemachineFreeLook MainCamera
+    public GameObject MainCamera
     {
         get => _mainCamera;
     }
-    private CinemachineFreeLook _mainCamera;
+    private GameObject _mainCamera;
 
     /// <summary>
     /// 현재 상호작용 중인 물체
@@ -212,9 +213,14 @@ public class PlayerController : NetworkBehaviour
         MultiplayerManager.LocalPlayerSet.Invoke();
 
         // 메인 카메라 생성
-        _mainCamera = GameObject.FindAnyObjectByType<CinemachineFreeLook>();
-        _mainCamera.Follow = transform;
-        _mainCamera.LookAt = transform;
+        _mainCamera = new GameObject("MainCamera");
+        _mainCamera.transform.SetParent(gameObject.transform);
+        _mainCamera.transform.localPosition = new Vector3(0f, 0.8f, 0.2f);
+
+        _mainCamera.AddComponent<Camera>();
+        _mainCamera.AddComponent<AudioListener>();
+
+        _mainCamera.tag = "MainCamera";
 
         Cursor.lockState = CursorLockMode.Locked;
     }
@@ -227,7 +233,7 @@ public class PlayerController : NetworkBehaviour
         float h = Input.GetAxis("Horizontal");
         float v = Input.GetAxis("Vertical");
 
-        Vector3 moveDirection = Quaternion.Euler(0, _mainCamera.State.FinalOrientation.eulerAngles.y, 0) * new Vector3(h, 0, v).normalized * _walkSpeed;
+        Vector3 moveDirection = Quaternion.Euler(0, _mainCamera.transform.rotation.eulerAngles.y, 0) * new Vector3(h, 0, v).normalized * _walkSpeed;
         _rigidbody.velocity = new Vector3(moveDirection.x, _rigidbody.velocity.y, moveDirection.z);
     }
 
@@ -236,7 +242,15 @@ public class PlayerController : NetworkBehaviour
     /// </summary>
     private void Rotate()
     {
-        transform.Rotate(0, _mainCamera.State.FinalOrientation.eulerAngles.y - transform.rotation.eulerAngles.y, 0f);
+        float h = Input.GetAxis("Mouse X");
+        float v = -Input.GetAxis("Mouse Y");
+
+        _pitchAngle = Mathf.Clamp(_pitchAngle + v * _rotateSpeed, -90, 90);
+
+        transform.Rotate(0, h * _rotateSpeed, 0f);
+        
+        Vector3 cameraRotation = _mainCamera.transform.rotation.eulerAngles;
+        _mainCamera.transform.rotation = Quaternion.Euler(_pitchAngle, cameraRotation.y, cameraRotation.z);
     }
 
     /// <summary>

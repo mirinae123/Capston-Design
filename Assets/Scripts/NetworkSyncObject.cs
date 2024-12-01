@@ -140,11 +140,12 @@ public class NetworkSyncObject : NetworkBehaviour
                 continue;
             }
 
-            Vector3 error = statePayload.position - _stateBuffer[bufferIndex].position;
+            float posDif = Vector3.Distance(statePayload.position, _stateBuffer[bufferIndex].position);
+            float rotDif = 1f - Quaternion.Dot(statePayload.rotation, _stateBuffer[bufferIndex].rotation);
 
-            if (error.sqrMagnitude > 0.00001f)
+            if (posDif > 0.00001f || rotDif > 0.00001f)
             {
-                DebugManager.Instance.AddDebugText($"{statePayload.position.x:0.00} {statePayload.position.y:0.00} {statePayload.position.z:0.00} :: {_stateBuffer[bufferIndex].position.x:0.00} {_stateBuffer[bufferIndex].position.y:0.00} {_stateBuffer[bufferIndex].position.z:0.00}");
+                // DebugManager.Instance.AddDebugText($"{statePayload.position.x:0.00} {statePayload.position.y:0.00} {statePayload.position.z:0.00} :: {_stateBuffer[bufferIndex].position.x:0.00} {_stateBuffer[bufferIndex].position.y:0.00} {_stateBuffer[bufferIndex].position.z:0.00}");
                 if (!NetworkSyncManager.Instance.NeedReconcile)
                 {
                     NetworkSyncManager.Instance.NeedReconcile = true;
@@ -272,6 +273,28 @@ public class NetworkSyncObject : NetworkBehaviour
                 }
                 GUILayout.EndArea();
             }
+        }
+        
+        if (gameObject.TryGetComponent<PlatformMover>(out PlatformMover pm))
+        {
+            GUI.Box(new Rect(585, 55, 260, 300), GUIContent.none);
+            GUILayout.BeginArea(new Rect(590, 60, 250, 290));
+
+            GUILayout.Label("Platform:", customLabelStyle);
+            GUILayout.Label($"Processing Tick: {_processingTick}");
+            GUILayout.Label($"Reconcile Target: {_reconcileTarget.tick}");
+
+            GUILayout.Label($"Input: \t\t State:");
+
+            if (NetworkSyncManager.Instance.CurrentTick >= 10)
+            {
+                for (int j = NetworkSyncManager.Instance.CurrentTick - 10; j < NetworkSyncManager.Instance.CurrentTick; j++)
+                {
+                    int i = j % 1024;
+                    GUILayout.Label($"{_inputBuffer[i].tick % 1000}: {_inputBuffer[i].inputVector.x:0.0} {_inputBuffer[i].inputVector.y:0.0} {_inputBuffer[i].inputVector.z:0.0} \t {_stateBuffer[i].tick % 1000}: {_stateBuffer[i].position.x:0.0} {_stateBuffer[i].position.y:0.0} {_stateBuffer[i].position.z:0.0}", customLabelStyle);
+                }
+            }
+            GUILayout.EndArea();
         }
 
         GUI.backgroundColor = originalColor;

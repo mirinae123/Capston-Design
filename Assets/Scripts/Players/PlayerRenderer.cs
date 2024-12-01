@@ -82,17 +82,31 @@ public class PlayerRenderer : NetworkBehaviour
 
         if (after == ColorType.Red)
         {
-            _playerMeshObject = Instantiate(_redPlayerPrefab, transform);
-            _playerMeshObject.transform.localPosition = new Vector3(0f, -1f, 0f);
+            _playerMeshObject = Instantiate(_redPlayerPrefab);
+            _playerMeshObject.transform.position = transform.position;
+            _playerMeshObject.transform.rotation = transform.rotation;
+            _playerMeshObject.AddComponent<NetworkSyncInterpolator>().Target = gameObject;
             _animator = _playerMeshObject.AddComponent<Animator>();
             _animator.runtimeAnimatorController = _redAnimatorController;
         }
         if (after == ColorType.Blue)
         {
-            _playerMeshObject = Instantiate(_bluePlayerPrefab, transform);
-            _playerMeshObject.transform.localPosition = new Vector3(0f, -1f, 0f);
+            _playerMeshObject = Instantiate(_bluePlayerPrefab);
+            _playerMeshObject.transform.position = transform.position;
+            _playerMeshObject.transform.rotation = transform.rotation;
+            _playerMeshObject.AddComponent<NetworkSyncInterpolator>().Target = gameObject;
             _animator = _playerMeshObject.AddComponent<Animator>();
             _animator.runtimeAnimatorController = _blueAnimatorController;
+        }
+
+        if (IsOwner)
+        {
+            _playerController.MainCamera = new GameObject();
+            _playerController.MainCamera.transform.parent = _playerMeshObject.transform;
+            _playerController.MainCamera.transform.position = new Vector3(0f, 0.6f, 0.3f);
+            _playerController.MainCamera.AddComponent<Camera>();
+            _playerController.MainCamera.AddComponent<AudioListener>();
+            _playerController.MainCamera.tag = "MainCamera";
         }
 
         _skinnedMeshRenderer = _playerMeshObject.GetComponentInChildren<SkinnedMeshRenderer>();

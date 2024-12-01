@@ -43,6 +43,7 @@ public class PlayerController : NetworkSyncObject
     public GameObject MainCamera
     {
         get => _mainCamera;
+        set => _mainCamera = value;
     }
     private GameObject _mainCamera;
 
@@ -211,12 +212,12 @@ public class PlayerController : NetworkSyncObject
         MultiplayerManager.LocalPlayerSet.Invoke();
 
         // 메인 카메라 생성
-        _mainCamera = new GameObject();
-        _mainCamera.transform.parent = transform;
-        _mainCamera.transform.position = new Vector3(0f, 0.6f, 0.3f);
-        _mainCamera.AddComponent<Camera>();
-        _mainCamera.AddComponent<AudioListener>();
-        _mainCamera.tag = "MainCamera";
+        //_mainCamera = new GameObject();
+        //_mainCamera.transform.parent = transform;
+        //_mainCamera.transform.position = new Vector3(0f, 0.6f, 0.3f);
+        //_mainCamera.AddComponent<Camera>();
+        //_mainCamera.AddComponent<AudioListener>();
+        //_mainCamera.tag = "MainCamera";
 
         Cursor.lockState = CursorLockMode.Locked;
     }
